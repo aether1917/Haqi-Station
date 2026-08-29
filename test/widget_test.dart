@@ -11,6 +11,7 @@ void main() {
         name: '开心猫',
         ext: 'gif',
         addedAt: 1724900000000,
+        category: '萌猫',
       );
 
       final restored = Sticker.fromJson(
@@ -20,7 +21,16 @@ void main() {
       expect(restored.name, sticker.name);
       expect(restored.ext, sticker.ext);
       expect(restored.addedAt, sticker.addedAt);
+      expect(restored.category, '萌猫');
       expect(restored.fileName, '1724900000000_abc123.gif');
+    });
+
+    test('未分类序列化不写入 category 键，读取时为 null', () {
+      final sticker = Sticker(id: 'a', name: 'a', ext: 'png', addedAt: 0);
+      expect(sticker.uncategorized, isTrue);
+      expect(sticker.toJson().containsKey('category'), isFalse);
+      final restored = Sticker.fromJson(sticker.toJson());
+      expect(restored.category, isNull);
     });
 
     test('isGif 由扩展名判断', () {

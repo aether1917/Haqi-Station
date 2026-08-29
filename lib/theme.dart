@@ -79,6 +79,10 @@ ThemeData _buildTheme(ColorScheme scheme, {required bool dark}) {
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
+    // 按压时不显示水波纹与灰色高亮遮罩。
+    splashColor: Colors.transparent,
+    highlightColor: Colors.transparent,
+    splashFactory: NoSplash.splashFactory,
     scaffoldBackgroundColor: scheme.surface,
     appBarTheme: AppBarTheme(
       backgroundColor: scheme.surface,

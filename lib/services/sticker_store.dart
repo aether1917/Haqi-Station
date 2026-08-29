@@ -15,7 +15,13 @@ const Set<String> kAllowedExtensions = {
 };
 
 class Sticker {
-  Sticker({required this.id, required this.name, required this.ext, required this.addedAt});
+  Sticker({
+    required this.id,
+    required this.name,
+    required this.ext,
+    required this.addedAt,
+    this.category,
+  });
 
   /// 唯一 ID，同时是存储文件名的主干。
   final String id;
@@ -29,29 +35,43 @@ class Sticker {
   /// 导入时间（epoch 毫秒）。
   final int addedAt;
 
+  /// 所属分类名；null 或空串表示「未分类」。分类可变，便于归组。
+  String? category;
+
   String get fileName => '$id.$ext';
   bool get isGif => ext == 'gif';
+  bool get uncategorized => category == null || category!.isEmpty;
 
-  Map<String, dynamic> toJson() => {'id': id, 'name': name, 'ext': ext, 'addedAt': addedAt};
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'ext': ext,
+        'addedAt': addedAt,
+        if (category != null) 'category': category,
+      };
 
   factory Sticker.fromJson(Map<String, dynamic> json) => Sticker(
         id: json['id'] as String,
         name: json['name'] as String,
         ext: json['ext'] as String,
         addedAt: json['addedAt'] as int,
+        category: json['category'] as String?,
       );
 }
 
 /// 表情包仓库：负责文件的复制存储与元数据（含排序）持久化。
 class StickerStore extends ChangeNotifier {
   static const _metaKey = 'haqi.stickers.v1';
+  static const _categoriesKey = 'haqi.categories.v1';
   static const _randomChars = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
   final List<Sticker> _items = [];
+  final List<String> _categories = [];
   bool _loaded = false;
   late Directory _dir;
 
   List<Sticker> get items => List.unmodifiable(_items);
+  List<String> get categories => List.unmodifiable(_categories);
   bool get loaded => _loaded;
   int get count => _items.length;
 
@@ -75,6 +95,11 @@ class StickerStore extends ChangeNotifier {
       ..addAll(_decode(raw));
     // 清理孤儿元数据（文件已丢失的记录）。
     _items.removeWhere((s) => !File(pathOf(s)).existsSync());
+    // 只保留仍被引用的分类，避免删除表情包后堆积空分类。
+    _categories
+      ..clear()
+      ..addAll(prefs.getStringList(_categoriesKey) ?? const <String>[])
+      ..retainWhere((c) => _items.any((s) => s.category == c));
     _loaded = true;
     notifyListeners();
   }
@@ -95,6 +120,7 @@ class StickerStore extends ChangeNotifier {
   Future<void> _persist() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_metaKey, jsonEncode([for (final s in _items) s.toJson()]));
+    await prefs.setStringList(_categoriesKey, _categories);
   }
 
   /// 从选中的文件导入表情包，返回成功导入数量。
@@ -140,8 +166,25 @@ class StickerStore extends ChangeNotifier {
       }
     }
     _items.removeWhere((s) => idSet.contains(s.id));
+    // 一并清理不再被引用的分类。
+    _categories.retainWhere((c) => _items.any((s) => s.category == c));
     await _persist();
     notifyListeners();
+  }
+
+  /// 创建分类并把选中的表情包归入其中；同名分类已存在时直接归入不重复建。
+  /// 名称去除首尾空白后为空则返回 null。
+  Future<String?> createCategory(String name, Iterable<String> stickerIds) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return null;
+    final ids = stickerIds.toSet();
+    if (!_categories.contains(trimmed)) _categories.add(trimmed);
+    for (final s in _items) {
+      if (ids.contains(s.id)) s.category = trimmed;
+    }
+    notifyListeners();
+    await _persist();
+    return trimmed;
   }
 
   /// 拖拽排序：语义与 reorderable_grid_view 一致 ——

@@ -80,4 +80,49 @@ void main() {
       expect(ids(store), ['a', 'b', 'c']);
     });
   });
+
+  group('StickerStore 分类', () {
+    test('创建分类并把选中项归入，重载后保持', () async {
+      final store = await seededStore();
+      final name = await store.createCategory('萌猫', ['a', 'c']);
+      expect(name, '萌猫');
+      expect(store.categories, ['萌猫']);
+      expect(
+        {for (final s in store.items) s.id: s.category},
+        {'a': '萌猫', 'b': null, 'c': '萌猫'},
+      );
+
+      final reloaded = await seededStore();
+      expect(reloaded.categories, ['萌猫']);
+      expect(
+        {for (final s in reloaded.items) s.id: s.category},
+        {'a': '萌猫', 'b': null, 'c': '萌猫'},
+      );
+    });
+
+    test('同名分类直接归入，不重复创建', () async {
+      final store = await seededStore();
+      await store.createCategory('萌猫', ['a']);
+      await store.createCategory('萌猫', ['b']);
+      expect(store.categories, ['萌猫']);
+      expect(store.items.firstWhere((s) => s.id == 'b').category, '萌猫');
+    });
+
+    test('空白名称返回 null 且不产生分类', () async {
+      final store = await seededStore();
+      expect(await store.createCategory('   ', ['a']), isNull);
+      expect(store.categories, isEmpty);
+      expect(store.items.firstWhere((s) => s.id == 'a').category, isNull);
+    });
+
+    test('删除表情包后，加载时清理无引用的分类', () async {
+      final store = await seededStore();
+      await store.createCategory('萌猫', ['a']);
+      await store.deleteMany(['a']);
+      expect(store.categories, isEmpty);
+
+      final reloaded = await seededStore();
+      expect(reloaded.categories, isEmpty);
+    });
+  });
 }
