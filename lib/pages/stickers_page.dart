@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../services/sticker_store.dart';
 import '../widgets/sticker_tile.dart';
@@ -129,6 +132,23 @@ class _StickersPageState extends State<StickersPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text('已删除 $count 个表情包')));
+  }
+
+  /// 多选快速分享：把选中的表情包文件一次性分享出去。
+  Future<void> _shareSelected() async {
+    final files = [
+      for (final s in _store.items)
+        if (_selectedIds.contains(s.id) && File(_store.pathOf(s)).existsSync())
+          XFile(_store.pathOf(s)),
+    ];
+    if (files.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('文件不存在，无法分享')));
+      return;
+    }
+    await SharePlus.instance.share(
+      ShareParams(files: files, text: '${files.length} 个表情包 · 来自哈气站'),
+    );
   }
 
   /// 多选分类二级菜单：把选中项归入/移出现有分类，或新建分类。
@@ -380,6 +400,11 @@ class _StickersPageState extends State<StickersPage> {
           tooltip: '分类',
           icon: const Icon(Icons.label_outline_rounded),
           onPressed: _selectedIds.isEmpty ? null : _showCategorySheet,
+        ),
+        IconButton(
+          tooltip: '分享',
+          icon: const Icon(Icons.share_rounded),
+          onPressed: _selectedIds.isEmpty ? null : _shareSelected,
         ),
         IconButton(
           tooltip: _selectedIds.length == _store.count ? '取消全选' : '全选',

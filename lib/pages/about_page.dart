@@ -43,7 +43,7 @@ class AboutPage extends StatelessWidget {
               const SizedBox(height: 20),
               Text('哈气站', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
-              Text('Haqi Station v1.2.0',
+              Text('Haqi Station v1.3.0',
                   style: text.bodyMedium?.copyWith(color: colors.onSurfaceVariant)),
               const SizedBox(height: 16),
               Text(
