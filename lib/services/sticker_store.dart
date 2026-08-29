@@ -177,14 +177,40 @@ class StickerStore extends ChangeNotifier {
   Future<String?> createCategory(String name, Iterable<String> stickerIds) async {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return null;
-    final ids = stickerIds.toSet();
     if (!_categories.contains(trimmed)) _categories.add(trimmed);
+    await assignCategory(trimmed, stickerIds);
+    return trimmed;
+  }
+
+  /// 把选中的表情包归入指定分类。
+  Future<void> assignCategory(String name, Iterable<String> stickerIds) async {
+    final ids = stickerIds.toSet();
     for (final s in _items) {
-      if (ids.contains(s.id)) s.category = trimmed;
+      if (ids.contains(s.id)) s.category = name;
     }
     notifyListeners();
     await _persist();
-    return trimmed;
+  }
+
+  /// 把选中的表情包移出指定分类（变为未分类）；分类因此变空时一并删除。
+  Future<void> removeFromCategory(String name, Iterable<String> stickerIds) async {
+    final ids = stickerIds.toSet();
+    for (final s in _items) {
+      if (ids.contains(s.id) && s.category == name) s.category = null;
+    }
+    _categories.retainWhere((c) => _items.any((s) => s.category == c));
+    notifyListeners();
+    await _persist();
+  }
+
+  /// 删除分类本身，其下表情包全部变为未分类。
+  Future<void> deleteCategory(String name) async {
+    _categories.remove(name);
+    for (final s in _items) {
+      if (s.category == name) s.category = null;
+    }
+    notifyListeners();
+    await _persist();
   }
 
   /// 拖拽排序：语义与 reorderable_grid_view 一致 ——

@@ -124,5 +124,42 @@ void main() {
       final reloaded = await seededStore();
       expect(reloaded.categories, isEmpty);
     });
+
+    test('deleteCategory 删除分类，其下表情包变为未分类', () async {
+      final store = await seededStore();
+      await store.createCategory('萌猫', ['a', 'c']);
+      await store.deleteCategory('萌猫');
+      expect(store.categories, isEmpty);
+      expect(
+        {for (final s in store.items) s.id: s.uncategorized},
+        {'a': true, 'b': true, 'c': true},
+      );
+
+      final reloaded = await seededStore();
+      expect(reloaded.categories, isEmpty);
+      expect(store.items.every((s) => s.uncategorized), isTrue);
+    });
+
+    test('removeFromCategory 只移除指定成员，分类变空时一并删除', () async {
+      final store = await seededStore();
+      await store.createCategory('萌猫', ['a', 'c']);
+      await store.removeFromCategory('萌猫', ['a']);
+      expect(store.categories, ['萌猫']);
+      expect(store.items.firstWhere((s) => s.id == 'a').uncategorized, isTrue);
+      expect(store.items.firstWhere((s) => s.id == 'c').category, '萌猫');
+
+      await store.removeFromCategory('萌猫', ['c']);
+      expect(store.categories, isEmpty);
+      expect(store.items.every((s) => s.uncategorized), isTrue);
+    });
+
+    test('removeFromCategory 对其他分类的成员无影响', () async {
+      final store = await seededStore();
+      await store.createCategory('萌猫', ['a']);
+      await store.createCategory('汪汪', ['b']);
+      await store.removeFromCategory('萌猫', ['b']);
+      expect(store.items.firstWhere((s) => s.id == 'b').category, '汪汪');
+      expect(store.categories, containsAll(['萌猫', '汪汪']));
+    });
   });
 }

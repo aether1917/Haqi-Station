@@ -27,13 +27,24 @@ class _StickersPageState extends State<StickersPage> {
   @override
   void initState() {
     super.initState();
+    _store.addListener(_ensureValidFilter);
     _store.load();
   }
 
   @override
   void dispose() {
+    _store.removeListener(_ensureValidFilter);
     _store.dispose();
     super.dispose();
+  }
+
+  /// 分类被删除或清空后，把失效的过滤器回退到「全部」。
+  void _ensureValidFilter() {
+    final active = _activeCategory;
+    if (active == null || active.isEmpty) return;
+    if (!_store.categories.contains(active) && mounted) {
+      setState(() => _activeCategory = null);
+    }
   }
 
   /// 按分类栏过滤后的可见表情包。
@@ -120,13 +131,110 @@ class _StickersPageState extends State<StickersPage> {
         .showSnackBar(SnackBar(content: Text('已删除 $count 个表情包')));
   }
 
-  /// 多选创建分类：弹窗内可修改分类名称，确认后把选中项归入该分类。
+  /// 多选分类二级菜单：把选中项归入/移出现有分类，或新建分类。
+  /// 操作后菜单保持打开，方便连续操作多个分类。
+  Future<void> _showCategorySheet() async {
+    final ids = _selectedIds.toSet();
+    if (ids.isEmpty) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: ListenableBuilder(
+          listenable: _store,
+          builder: (context, _) {
+            final categories = _store.categories;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      '分类（已选 ${ids.length} 项）',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                if (categories.isEmpty)
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '还没有分类，点下方「新建分类」创建',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      ),
+                    ),
+                  ),
+                for (final c in categories) _sheetCategoryTile(sheetContext, c, ids),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.add_rounded),
+                  title: const Text('新建分类'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _createCategory();
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _sheetCategoryTile(
+      BuildContext sheetContext, String category, Set<String> ids) {
+    final colors = Theme.of(context).colorScheme;
+    final selectedInCategory = [
+      for (final s in _store.items)
+        if (ids.contains(s.id) && s.category == category) s.id,
+    ];
+    return ListTile(
+      leading: const Icon(Icons.label_outline_rounded),
+      title: Text(category),
+      subtitle: selectedInCategory.isEmpty
+          ? null
+          : Text('已选 ${selectedInCategory.length} 项在该分类'),
+      trailing: selectedInCategory.isEmpty
+          ? null
+          : IconButton(
+              tooltip: '把所选移出该分类',
+              icon: Icon(Icons.remove_circle_outline_rounded,
+                  color: colors.error),
+              onPressed: () async {
+                final count = selectedInCategory.length;
+                await _store.removeFromCategory(category, selectedInCategory);
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('已从「$category」移出 $count 个表情包')));
+              },
+            ),
+      onTap: () async {
+        await _store.assignCategory(category, ids);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('已把 ${ids.length} 个表情包归入「$category」')));
+      },
+    );
+  }
+
+  /// 新建分类：弹窗内可修改分类名称，确认后把选中项归入该分类。
   Future<void> _createCategory() async {
     final controller = TextEditingController(text: '新分类');
     final name = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('创建分类'),
+        title: const Text('新建分类'),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -154,14 +262,44 @@ class _StickersPageState extends State<StickersPage> {
     final isNew = !_store.categories.contains(trimmed);
     final count = _selectedIds.length;
     await _store.createCategory(trimmed, _selectedIds);
-    _exitSelectMode();
     if (!mounted) return;
-    setState(() => _activeCategory = trimmed);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(isNew
           ? '已创建分类「$trimmed」，含 $count 个表情包'
           : '已把 $count 个表情包归入「$trimmed」'),
     ));
+  }
+
+  /// 长按分类胶囊删除分类：其下表情包变为未分类。
+  Future<void> _confirmDeleteCategory(String name) async {
+    final count = _store.items.where((s) => s.category == name).length;
+    final colors = Theme.of(context).colorScheme;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除分类'),
+        content: Text('删除分类「$name」？其中 $count 个表情包将变为未分类。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: colors.error,
+              foregroundColor: colors.onError,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _store.deleteCategory(name);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('已删除分类「$name」')));
   }
 
   void _openDetail(Sticker sticker) async {
@@ -239,9 +377,9 @@ class _StickersPageState extends State<StickersPage> {
       backgroundColor: colors.surfaceContainerLow,
       actions: [
         IconButton(
-          tooltip: '创建分类',
-          icon: const Icon(Icons.create_new_folder_outlined),
-          onPressed: _selectedIds.isEmpty ? null : _createCategory,
+          tooltip: '分类',
+          icon: const Icon(Icons.label_outline_rounded),
+          onPressed: _selectedIds.isEmpty ? null : _showCategorySheet,
         ),
         IconButton(
           tooltip: _selectedIds.length == _store.count ? '取消全选' : '全选',
@@ -298,14 +436,19 @@ class _StickersPageState extends State<StickersPage> {
 
   Widget _categoryChip({required String label, required String? value}) {
     final selected = _activeCategory == value;
+    final deletable = value != null && value.isNotEmpty;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: selected,
-        onSelected: (selected) {
-          if (selected) setState(() => _activeCategory = value);
-        },
+      child: GestureDetector(
+        // ChoiceChip 无 onLongPress，长按删除由外层手势接管。
+        onLongPress: deletable ? () => _confirmDeleteCategory(value) : null,
+        child: ChoiceChip(
+          label: Text(label),
+          selected: selected,
+          onSelected: (selected) {
+            if (selected) setState(() => _activeCategory = value);
+          },
+        ),
       ),
     );
   }
