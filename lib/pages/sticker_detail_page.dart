@@ -29,8 +29,10 @@ class StickerDetailPage extends StatelessWidget {
           .showSnackBar(const SnackBar(content: Text('文件不存在，无法分享')));
       return;
     }
+    // 不带 text：微信对「文件流 + 文本」组合的分享会直接丢弃，
+    // 导致选择微信后无反应（文件名本身已可说明内容）。
     await SharePlus.instance.share(
-      ShareParams(files: [XFile(file.path)], text: '${sticker.name} · 来自哈气站'),
+      ShareParams(files: [XFile(file.path)]),
     );
   }
 

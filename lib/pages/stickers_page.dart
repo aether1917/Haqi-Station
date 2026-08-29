@@ -135,6 +135,8 @@ class _StickersPageState extends State<StickersPage> {
   }
 
   /// 多选快速分享：把选中的表情包文件一次性分享出去。
+  /// 注意：分享文件时不要带 text —— 微信对「文件流 + 文本」组合的
+  /// 分享会直接丢弃，导致选择微信后无反应。
   Future<void> _shareSelected() async {
     final files = [
       for (final s in _store.items)
@@ -146,9 +148,7 @@ class _StickersPageState extends State<StickersPage> {
           .showSnackBar(const SnackBar(content: Text('文件不存在，无法分享')));
       return;
     }
-    await SharePlus.instance.share(
-      ShareParams(files: files, text: '${files.length} 个表情包 · 来自哈气站'),
-    );
+    await SharePlus.instance.share(ShareParams(files: files));
   }
 
   /// 多选分类二级菜单：把选中项归入/移出现有分类，或新建分类。
