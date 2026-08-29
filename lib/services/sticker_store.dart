@@ -144,13 +144,23 @@ class StickerStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 拖拽排序语义与 ReorderableListView 一致。
+  /// 拖拽排序：语义与 reorderable_grid_view 一致 ——
+  /// newIndex 即松手后的最终落位（包在拖拽中已按目标格预览动画），
+  /// 不要做 ReorderableListView 那样的 `newIndex -= 1` 调整，
+  /// 否则向后拖会原地弹回。
   Future<void> reorder(int oldIndex, int newIndex) async {
-    if (newIndex > oldIndex) newIndex -= 1;
+    if (oldIndex < 0 ||
+        oldIndex >= _items.length ||
+        newIndex < 0 ||
+        newIndex >= _items.length ||
+        newIndex == oldIndex) {
+      return;
+    }
     final moved = _items.removeAt(oldIndex);
     _items.insert(newIndex, moved);
-    await _persist();
+    // 先刷新 UI 再落盘，避免等 prefs 写入期间出现一帧旧顺序的闪烁。
     notifyListeners();
+    await _persist();
   }
 
   static String _randomSuffix() {

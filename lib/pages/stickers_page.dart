@@ -211,7 +211,6 @@ class _StickersPageState extends State<StickersPage> {
       dragEnabled: true,
       onReorder: (oldIndex, newIndex) {
         _store.reorder(oldIndex, newIndex);
-        setState(() {});
       },
       children: [
         for (final sticker in stickers)
