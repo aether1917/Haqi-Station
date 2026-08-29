@@ -114,30 +114,37 @@ class _StickersPageState extends State<StickersPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: _selectMode ? _buildSelectionAppBar() : _buildNormalAppBar(),
-      body: ListenableBuilder(
-        listenable: _store,
-        builder: (context, _) {
-          if (!_store.loaded) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (_store.items.isEmpty) return _buildEmptyState();
-          return _buildGrid();
-        },
+    // 多选模式下拦截系统返回键：先退出多选而不是退出应用。
+    return PopScope(
+      canPop: !_selectMode,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _exitSelectMode();
+      },
+      child: Scaffold(
+        appBar: _selectMode ? _buildSelectionAppBar() : _buildNormalAppBar(),
+        body: ListenableBuilder(
+          listenable: _store,
+          builder: (context, _) {
+            if (!_store.loaded) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (_store.items.isEmpty) return _buildEmptyState();
+            return _buildGrid();
+          },
+        ),
+        floatingActionButton: _selectMode
+            ? null
+            : FloatingActionButton.extended(
+                onPressed: _importing ? null : _import,
+                icon: _importing
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.add_rounded),
+                label: const Text('导入'),
+              ),
       ),
-      floatingActionButton: _selectMode
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: _importing ? null : _import,
-              icon: _importing
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.add_rounded),
-              label: const Text('导入'),
-            ),
     );
   }
 

@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 0.1.0-beta+2
 
 environment:
   sdk: ^3.13.2
@@ -41,6 +41,8 @@ dependencies:
   url_launcher: ^6.3.2
   reorderable_grid_view: ^2.2.8
   path: ^1.9.1
+  dynamic_color: ^2.1.0
+  material_color_utilities: ^0.13.0
 
 dev_dependencies:
   flutter_test:
@@ -100,10 +102,10 @@ flutter:
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
 
-# 应用启动图标生成（dart run flutter_launcher_icons）
+# 旧式启动图标生成（dart run flutter_launcher_icons）。
+# 自适应图标（mipmap-anydpi-v26 与 drawable-* 双层图层）由 tool/gen_icon.dart
+# 手动管理为全出血图片，此处不要配置 adaptive_icon_*，以免覆盖回带黑边的版本。
 flutter_launcher_icons:
   image_path: "assets/icon/app_icon.jpg"
   android: true
   min_sdk_android: 21
-  adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/icon/app_icon_fg.png"

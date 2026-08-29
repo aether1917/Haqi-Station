@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#FFFFFF</color>
+    <!-- 自适应图标背景层已改为 @drawable/ic_launcher_background 图片（见 mipmap-anydpi-v26/ic_launcher.xml）。 -->
 </resources>
