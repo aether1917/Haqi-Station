@@ -1,10 +1,8 @@
 import 'dart:io';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
-import '../services/media_store.dart';
 import '../services/native_share.dart';
 import '../services/sticker_store.dart';
 import '../widgets/sticker_tile.dart';
@@ -82,28 +80,13 @@ class _StickersPageState extends State<StickersPage> {
     });
   }
 
+  /// 导入：直达应用内建内容查看器（相册）；「从文件选择」在查看器内。
   Future<void> _import() async {
     if (_importing) return;
-    final source = await _chooseImportSource();
-    if (!mounted || source == null) return;
-
     setState(() => _importing = true);
     try {
-      List<String> paths;
-      if (source == 'gallery') {
-        // 应用内建内容查看器：按相册浏览媒体库（需照片/视频权限）。
-        final uris = await showMediaPicker(context);
-        if (!mounted || uris == null || uris.isEmpty) return;
-        paths = await MediaStoreService.resolveMediaPaths(uris);
-      } else {
-        final picked = await FilePicker.pickFiles(type: FileType.image);
-        paths = [
-          for (final f in picked)
-            if (f.path != null) f.path!,
-        ];
-      }
-      if (!mounted) return;
-      if (paths.isEmpty) return;
+      final paths = await showMediaPicker(context);
+      if (!mounted || paths == null || paths.isEmpty) return;
       final count = await _store.importFiles(paths);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -114,33 +97,6 @@ class _StickersPageState extends State<StickersPage> {
     } finally {
       if (mounted) setState(() => _importing = false);
     }
-  }
-
-  /// 选择导入来源：相册（含用户自建相册）或文件。
-  Future<String?> _chooseImportSource() {
-    return showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('从相册选择'),
-              subtitle: const Text('应用内按相册浏览图片和 GIF'),
-              onTap: () => Navigator.pop(sheetContext, 'gallery'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.folder_outlined),
-              title: const Text('从文件选择'),
-              subtitle: const Text('浏览任意目录里的图片文件'),
-              onTap: () => Navigator.pop(sheetContext, 'files'),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   Future<void> _deleteSelected() async {
@@ -476,7 +432,8 @@ class _StickersPageState extends State<StickersPage> {
     );
   }
 
-  /// 标题栏下方的分类栏：全部 / 未分类 / 自定义分类。
+  /// 标题栏下方的分类栏：全部 / 未分类 固定在前，
+  /// 自定义分类支持长按拖拽排序（× 删除）。
   PreferredSizeWidget _buildCategoryBar() {
     return PreferredSize(
       preferredSize: const Size.fromHeight(56),
@@ -484,19 +441,59 @@ class _StickersPageState extends State<StickersPage> {
         height: 56,
         alignment: Alignment.centerLeft,
         color: Theme.of(context).appBarTheme.backgroundColor,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: ListenableBuilder(
-            listenable: _store,
-            builder: (context, _) => Row(
+        child: ListenableBuilder(
+          listenable: _store,
+          builder: (context, _) {
+            final categories = _store.categories;
+            return Row(
               children: [
+                const SizedBox(width: 12),
                 _categoryChip(label: '全部', value: null),
                 _categoryChip(label: '未分类', value: ''),
-                for (final c in _store.categories) _categoryChip(label: c, value: c),
+                Expanded(
+                  child: categories.isEmpty
+                      ? const SizedBox.shrink()
+                      : ReorderableListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          buildDefaultDragHandles: true,
+                          itemCount: categories.length,
+                          onReorderItem: (oldIndex, newIndex) =>
+                              _store.reorderCategory(oldIndex, newIndex),
+                          proxyDecorator: (child, index, animation) =>
+                              Material(
+                            elevation: 2,
+                            color: Colors.transparent,
+                            child: child,
+                          ),
+                          itemBuilder: (context, index) {
+                            final category = categories[index];
+                            return Padding(
+                              key: ValueKey(category),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
+                              child: FilterChip(
+                                label: Text(category),
+                                selected: _activeCategory == category,
+                                showCheckmark: false,
+                                onSelected: (selected) {
+                                  if (selected) {
+                                    setState(
+                                        () => _activeCategory = category);
+                                  }
+                                },
+                                onDeleted: () =>
+                                    _confirmDeleteCategory(category),
+                                deleteIconColor:
+                                    Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                const SizedBox(width: 12),
               ],
-            ),
-          ),
+            );
+          },
         ),
       ),
     );
@@ -504,19 +501,14 @@ class _StickersPageState extends State<StickersPage> {
 
   Widget _categoryChip({required String label, required String? value}) {
     final selected = _activeCategory == value;
-    final deletable = value != null && value.isNotEmpty;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: GestureDetector(
-        // ChoiceChip 无 onLongPress，长按删除由外层手势接管。
-        onLongPress: deletable ? () => _confirmDeleteCategory(value) : null,
-        child: ChoiceChip(
-          label: Text(label),
-          selected: selected,
-          onSelected: (selected) {
-            if (selected) setState(() => _activeCategory = value);
-          },
-        ),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: (selected) {
+          if (selected) setState(() => _activeCategory = value);
+        },
       ),
     );
   }

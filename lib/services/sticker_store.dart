@@ -203,6 +203,23 @@ class StickerStore extends ChangeNotifier {
     await _persist();
   }
 
+  /// 分类栏拖拽排序。配合框架 `onReorderItem` 回调（已由框架调整索引），
+  /// 语义与 [reorder] 一致：newIndex 即最终落位。
+  Future<void> reorderCategory(int oldIndex, int newIndex) async {
+    final length = _categories.length;
+    if (oldIndex < 0 ||
+        oldIndex >= length ||
+        newIndex < 0 ||
+        newIndex >= length ||
+        newIndex == oldIndex) {
+      return;
+    }
+    final moved = _categories.removeAt(oldIndex);
+    _categories.insert(newIndex, moved);
+    notifyListeners();
+    await _persist();
+  }
+
   /// 删除分类本身，其下表情包全部变为未分类。
   Future<void> deleteCategory(String name) async {
     _categories.remove(name);

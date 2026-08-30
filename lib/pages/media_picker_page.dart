@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -112,6 +113,20 @@ class _MediaPickerPageState extends State<MediaPickerPage> {
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           actions: [
+            IconButton(
+              tooltip: '从文件选择',
+              icon: const Icon(Icons.folder_outlined),
+              onPressed: () async {
+                final navigator = Navigator.of(context);
+                final picked = await FilePicker.pickFiles(type: FileType.image);
+                final paths = [
+                  for (final f in picked)
+                    if (f.path != null) f.path!,
+                ];
+                if (!mounted || paths.isEmpty) return;
+                navigator.pop(paths);
+              },
+            ),
             if (_selectedUris.isNotEmpty)
               TextButton(
                 onPressed: () async {

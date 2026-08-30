@@ -161,5 +161,48 @@ void main() {
       expect(store.items.firstWhere((s) => s.id == 'b').category, '汪汪');
       expect(store.categories, containsAll(['萌猫', '汪汪']));
     });
+
+    group('StickerStore.reorderCategory（onReorderItem 语义：newIndex 即最终落位）', () {
+      Future<StickerStore> abcStore() async {
+        final store = await seededStore();
+        await store.createCategory('甲', ['a']);
+        await store.createCategory('乙', ['b']);
+        await store.createCategory('丙', ['c']);
+        return store;
+      }
+
+      test('向后拖两格：甲拖到丙后面', () async {
+        final store = await abcStore();
+        await store.reorderCategory(0, 2);
+        expect(store.categories, ['乙', '丙', '甲']);
+      });
+
+      test('向后拖一格', () async {
+        final store = await abcStore();
+        await store.reorderCategory(0, 1);
+        expect(store.categories, ['乙', '甲', '丙']);
+      });
+
+      test('向前拖到最前', () async {
+        final store = await abcStore();
+        await store.reorderCategory(2, 0);
+        expect(store.categories, ['丙', '甲', '乙']);
+      });
+
+      test('原位或越界是安全的空操作', () async {
+        final store = await abcStore();
+        await store.reorderCategory(0, 0);
+        await store.reorderCategory(-1, 0);
+        await store.reorderCategory(0, 4);
+        expect(store.categories, ['甲', '乙', '丙']);
+      });
+
+      test('分类顺序持久化，重载后保持', () async {
+        final store = await abcStore();
+        await store.reorderCategory(0, 2);
+        final reloaded = await seededStore();
+        expect(reloaded.categories, ['乙', '丙', '甲']);
+      });
+    });
   });
 }
