@@ -226,19 +226,24 @@ class _StickersPageState extends State<StickersPage> {
               icon: Icon(Icons.remove_circle_outline_rounded,
                   color: colors.error),
               onPressed: () async {
+                final navigator = Navigator.of(sheetContext);
                 final count = selectedInCategory.length;
                 await _store.removeFromCategory(category, selectedInCategory);
                 if (!mounted) return;
+                // 操作完成后收起菜单并取消选择。
+                navigator.pop();
+                _exitSelectMode();
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                     content: Text('已从「$category」移出 $count 个表情包')));
               },
             ),
       onTap: () async {
-        // 归入后自动收起菜单，回到表情包页看结果。
+        // 归入完成后收起菜单并取消选择。
         final navigator = Navigator.of(sheetContext);
         await _store.assignCategory(category, ids);
         if (!mounted) return;
         navigator.pop();
+        _exitSelectMode();
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('已把 ${ids.length} 个表情包归入「$category」')));
       },
@@ -281,6 +286,8 @@ class _StickersPageState extends State<StickersPage> {
     final count = _selectedIds.length;
     await _store.createCategory(trimmed, _selectedIds);
     if (!mounted) return;
+    // 创建完成同样取消选择，保持与其他分类操作一致。
+    _exitSelectMode();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(isNew
           ? '已创建分类「$trimmed」，含 $count 个表情包'
