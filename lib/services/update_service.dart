@@ -117,29 +117,58 @@ class UpdateService {
     );
   }
 
-  /// 远程版本是否比本地新。比较 X.Y.Z 数字三段（忽略 pre-release 后缀
-  /// 名称差异），并把"正式版优先于同号预览版"作为同版本的决胜规则：
-  /// 1.5.1 正式 > 1.5.1-beta，1.5.1-beta 不高于 1.5.1 正式。
-  static bool isNewer(String remote, String local) {
-    final r = _versionQuad(remote);
-    final l = _versionQuad(local);
-    for (var i = 0; i < 4; i++) {
-      if (r[i] != l[i]) return r[i] > l[i];
+  /// 远程版本是否比本地新。
+  ///
+  /// 完整语义化比较：数字三段；同号时正式版 > 预发布版；两个预发布版
+  /// 按 semver 标识符逐段比较（数字按数值、字母按 ASCII、数字段 <
+  /// 字母段、标识符少者小），因此 beta < beta.1 < beta.2 < rc < 正式。
+  static bool isNewer(String remote, String local) =>
+      compareVersions(remote, local) > 0;
+
+  /// 语义化版本比较，返回正数表示 [a] 比 [b] 新。
+  static int compareVersions(String a, String b) {
+    final va = _parseVersion(a);
+    final vb = _parseVersion(b);
+    for (var i = 0; i < 3; i++) {
+      if (va.$1[i] != vb.$1[i]) return va.$1[i].compareTo(vb.$1[i]);
     }
-    return false;
+    if (va.$2 != vb.$2) return va.$2 ? 1 : -1; // 正式版新于预发布版
+    final common = va.$3.length < vb.$3.length ? va.$3.length : vb.$3.length;
+    for (var i = 0; i < common; i++) {
+      final cmp = _comparePreIdentifier(va.$3[i], vb.$3[i]);
+      if (cmp != 0) return cmp;
+    }
+    return va.$3.length.compareTo(vb.$3.length);
   }
 
-  /// [major, minor, patch, preFlag]；preFlag：正式版 1、预览版 0。
-  static List<int> _versionQuad(String version) {
+  /// (数字三段, 是否正式版, 预发布标识符列表)。
+  static (List<int>, bool, List<String>) _parseVersion(String version) {
     final trimmed = version.trim().replaceFirst(RegExp(r'^v'), '');
     final segments = trimmed.split('-');
-    final core = segments.first;
-    final isPrerelease = segments.length > 1 && segments.sublist(1).any((s) => s.isNotEmpty);
-    final parts = core.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-    while (parts.length < 3) {
-      parts.add(0);
-    }
-    return [...parts.sublist(0, 3), isPrerelease ? 0 : 1];
+    final coreParts = segments.first.split('.');
+    final core = <int>[
+      for (var i = 0; i < 3; i++)
+        i < coreParts.length ? (int.tryParse(coreParts[i]) ?? 0) : 0,
+    ];
+    final isPrerelease = segments.length > 1;
+    final preIds = isPrerelease
+        ? segments
+            .sublist(1)
+            .expand((s) => s.split('.'))
+            .where((s) => s.isNotEmpty)
+            .toList()
+        : const <String>[];
+    return (core, !isPrerelease, preIds);
+  }
+
+  /// 预发布标识符比较：数字按数值、字母按 ASCII、数字段 < 字母段。
+  static int _comparePreIdentifier(String a, String b) {
+    final na = int.tryParse(a);
+    final nb = int.tryParse(b);
+    if (na != null && nb != null) return na.compareTo(nb);
+    if (na != null) return -1;
+    if (nb != null) return 1;
+    return a.compareTo(b);
   }
 
   /// 用系统浏览器打开 APK 下载链接，返回是否成功调起。

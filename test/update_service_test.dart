@@ -33,6 +33,15 @@ void main() {
       expect(UpdateService.isNewer('1.5.1-alpha', '1.5.1-beta'), isFalse);
       expect(UpdateService.isNewer('1.5.1-beta', '1.5.0'), isTrue);
     });
+    test('预发布标识符按 semver 逐段比较（回归：beta.1 之前被判不更新）', () {
+      expect(UpdateService.isNewer('1.5.1-beta.1', '1.5.1-beta'), isTrue);
+      expect(UpdateService.isNewer('1.5.1-beta.2', '1.5.1-beta.1'), isTrue);
+      expect(UpdateService.isNewer('1.5.1-beta.1', '1.5.1-beta.2'), isFalse);
+      expect(UpdateService.isNewer('1.5.1-beta.1', '1.5.1-beta'), isTrue);
+      expect(UpdateService.isNewer('1.5.1-rc', '1.5.1-beta.1'), isTrue);
+      expect(UpdateService.isNewer('1.5.1-rc', '1.5.1-beta'), isTrue);
+      expect(UpdateService.isNewer('1.5.1-beta.1', '1.5.1-rc'), isFalse);
+    });
     test('解析 prerelease 标记', () {
       final pre = UpdateService.parseRelease({
         'tag_name': 'v1.5.0-beta',
