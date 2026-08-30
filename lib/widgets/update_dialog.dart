@@ -24,6 +24,7 @@ Future<void> showUpdateDialog(BuildContext context, AppUpdate update) {
           child: const Text('以后再说'),
         ),
         FilledButton.icon(
+          style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
           onPressed: () {
             Navigator.pop(context);
             UpdateService.downloadApk(update.apkUrl);

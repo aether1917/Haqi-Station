@@ -119,6 +119,8 @@ class _StickersPageState extends State<StickersPage> {
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
               foregroundColor: Theme.of(context).colorScheme.onError,
+              // 覆盖主题里的整行宽度最小尺寸，让删除与取消同排。
+              minimumSize: const Size(72, 40),
             ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('删除'),
@@ -236,8 +238,11 @@ class _StickersPageState extends State<StickersPage> {
               },
             ),
       onTap: () async {
+        // 归入后自动收起菜单，回到表情包页看结果。
+        final navigator = Navigator.of(sheetContext);
         await _store.assignCategory(category, ids);
         if (!mounted) return;
+        navigator.pop();
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('已把 ${ids.length} 个表情包归入「$category」')));
       },
@@ -266,6 +271,7 @@ class _StickersPageState extends State<StickersPage> {
             child: const Text('取消'),
           ),
           FilledButton(
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
             onPressed: () => Navigator.pop(context, controller.text),
             child: const Text('创建'),
           ),
@@ -304,6 +310,7 @@ class _StickersPageState extends State<StickersPage> {
             style: FilledButton.styleFrom(
               backgroundColor: colors.error,
               foregroundColor: colors.onError,
+              minimumSize: const Size(72, 40),
             ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('删除'),
