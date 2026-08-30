@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 检查更新（GitHub Releases API）需要联网；Flutter 模板默认只在
+         debug/profile 清单里声明，release 包不带，会导致应用完全无网络。 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="哈气站"
         android:name="${applicationName}"
