@@ -67,5 +67,27 @@ void main() {
           }),
           isNull);
     });
+
+    test('Gitee 形状的 release JSON 同样可解析（双源兼容）', () {
+      final update = UpdateService.parseRelease({
+        'id': 995355,
+        'tag_name': 'v1.4.3',
+        'target_commitish': '47b7af6',
+        'prerelease': false,
+        'name': '哈气站 v1.4.3',
+        'body': '## 修改\n- 检查更新源切到 Gitee',
+        'assets': [
+          {
+            'name': 'haqi-station-v1.4.3.apk',
+            'browser_download_url':
+                'https://gitee.com/aether2000/haqi-station/releases/download/v1.4.3/haqi-station-v1.4.3.apk',
+          },
+        ],
+      });
+      expect(update, isNotNull);
+      expect(update!.version, '1.4.3');
+      expect(update.notes, contains('Gitee'));
+      expect(update.apkUrl, startsWith('https://gitee.com/'));
+    });
   });
 }

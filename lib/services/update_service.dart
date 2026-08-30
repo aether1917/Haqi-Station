@@ -1,6 +1,7 @@
-/// 应用更新检查：以 GitHub Releases 为唯一更新源。
-/// /releases/latest 只返回最新正式版（排除 prerelease/draft），
+/// 应用更新检查：以 Gitee Releases 为主源（国内直连稳定），GitHub 兜底。
+/// 两平台 latest 接口均返回正式版（排除 prerelease/draft），
 /// tag_name 提供版本号，body 提供更新说明，assets 提供 APK 直链。
+/// 注意：更新检查匿名访问即可，用户的 Gitee 私人令牌绝不进入应用。
 library;
 
 import 'dart:convert';
@@ -30,20 +31,28 @@ class AppUpdate {
 }
 
 class UpdateService {
-  static const _latestApi =
+  static const _primaryLatestApi =
+      'https://gitee.com/api/v5/repos/aether2000/Haqi-Station/releases/latest';
+  static const _fallbackLatestApi =
       'https://api.github.com/repos/aether1917/Haqi-Station/releases/latest';
   static const _timeout = Duration(seconds: 12);
 
-  /// 拉取最新版本信息；网络失败或数据不完整返回 null（与"无更新"区分开）。
+  /// 拉取最新版本信息：先 Gitee，失败时回退 GitHub；
+  /// 两边都失败返回 null（与"无更新"区分开）。
   static Future<AppUpdate?> fetchLatest() async {
+    final fromGitee = await _fetchFrom(_primaryLatestApi);
+    if (fromGitee != null) return fromGitee;
+    return _fetchFrom(_fallbackLatestApi);
+  }
+
+  static Future<AppUpdate?> _fetchFrom(String url) async {
     try {
       final client = HttpClient();
       try {
-        final request = await client.getUrl(Uri.parse(_latestApi));
-        // GitHub API 要求携带 UA，否则 403。
+        final request = await client.getUrl(Uri.parse(url));
+        // GitHub API 要求携带 UA，否则 403；Gitee 也建议携带。
         request.headers.set(HttpHeaders.userAgentHeader, 'haqi-station-app');
-        final response =
-            await request.close().timeout(_timeout);
+        final response = await request.close().timeout(_timeout);
         if (response.statusCode != 200) return null;
         final body = await utf8.decoder.bind(response).join();
         return parseRelease(
