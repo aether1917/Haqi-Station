@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  .stage{position:relative;width:1080px;height:1440px;overflow:hidden;
+    background:radial-gradient(900px 700px at 80% 30%,#0C1420 0%,#05070B 60%),#05070B;
+    font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#F2F6EC}
+  .orb{position:absolute;border-radius:50%;filter:blur(100px)}
+  .orb.lime{width:520px;height:520px;left:-160px;top:340px;background:rgba(200,255,61,.12)}
+  .orb.cyan{width:560px;height:560px;right:-160px;top:-120px;background:rgba(83,232,255,.09)}
+  .floor{position:absolute;left:-25%;right:-25%;bottom:-160px;height:460px;
+    background-image:linear-gradient(rgba(200,255,61,.13) 1px,transparent 1px),
+                     linear-gradient(90deg,rgba(200,255,61,.13) 1px,transparent 1px);
+    background-size:60px 60px;transform:perspective(760px) rotateX(62deg);transform-origin:50% 100%;
+    -webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 62%)}
+  .scan{position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.02) 0 1px,transparent 1px 4px)}
+  .noise{position:absolute;inset:0;opacity:.045;background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="220" height="220"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2"/></filter><rect width="220" height="220" filter="url(%23n)" opacity="0.7"/></svg>')}
+  .br{position:absolute;width:26px;height:26px;border:2px solid rgba(200,255,61,.55)}
+  .br.tl{top:30px;left:30px;border-right:none;border-bottom:none}
+  .br.tr{top:30px;right:30px;border-left:none;border-bottom:none}
+  .br.bl{bottom:30px;left:30px;border-right:none;border-top:none}
+  .br.brr{bottom:30px;right:30px;border-left:none;border-top:none}
+  .mono{font-family:"Consolas","Cascadia Mono",monospace}
+
+  .top{position:absolute;left:64px;right:64px;top:62px}
+  .top-row{display:flex;justify-content:space-between;align-items:center;font:400 20px Consolas;letter-spacing:2px}
+  .top-row .l{color:#C8FF3D}
+  .top-row .r{color:rgba(242,246,236,.4)}
+  .seg{margin-top:20px;display:flex;gap:6px}
+  .seg i{flex:1;height:5px;background:rgba(242,246,236,.12)}
+  .seg i.on{background:#C8FF3D;box-shadow:0 0 10px rgba(200,255,61,.6)}
+  .rule{margin-top:22px;height:1px;background:linear-gradient(90deg,rgba(200,255,61,.6),transparent 70%)}
+
+  .title{position:absolute;left:64px;top:196px}
+  h1{font-size:124px;font-weight:900;letter-spacing:4px;line-height:1}
+  h1 .lit{background:linear-gradient(180deg,#EDFFBE,#C8FF3D);-webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 24px rgba(200,255,61,.35))}
+  .latin{margin-top:14px;font-family:Impact,"Arial Narrow",sans-serif;font-size:30px;letter-spacing:5px;
+    color:transparent;-webkit-text-stroke:1.3px rgba(242,246,236,.4)}
+  .sub{margin-top:16px;font-size:33px;font-weight:700;color:rgba(242,246,236,.85)}
+  .sub em{font-style:normal;color:#C8FF3D}
+
+  /* visual */
+  .viz{position:absolute;left:0;right:0;top:470px;height:560px}
+  .stack{position:absolute;left:96px;top:44px;width:210px;height:400px}
+  .pcard{position:absolute;width:196px;height:250px;border-radius:22px;overflow:hidden;
+    box-shadow:0 20px 44px rgba(0,0,0,.55),inset 0 0 0 1px rgba(255,255,255,.14);
+    display:flex;align-items:center;justify-content:center;font-family:"Segoe UI Emoji",sans-serif}
+  .pcard .cap{position:absolute;left:0;right:0;bottom:0;padding:7px 12px;font:400 13px Consolas;letter-spacing:1px;
+    color:rgba(242,246,236,.75);background:rgba(5,7,11,.72)}
+  .p1{left:0;top:96px;transform:rotate(-7deg);background:linear-gradient(135deg,#2A3648,#46536B);font-size:64px;z-index:1}
+  .p2{left:16px;top:48px;transform:rotate(-2deg);background:linear-gradient(135deg,#232F42,#3C4A66);font-size:64px;z-index:2}
+  .p3{left:32px;top:0;transform:rotate(3deg);background:linear-gradient(135deg,#31405A,#54648A);font-size:64px;z-index:3}
+  .stack-tag{position:absolute;left:104px;top:396px;padding:10px 18px;border:1px solid rgba(242,246,236,.3);border-radius:8px;
+    background:rgba(5,7,11,.7);font:600 21px Consolas;letter-spacing:2px;color:rgba(242,246,236,.85)}
+  .stack-tag b{color:#C8FF3D;font-weight:700}
+
+  .phone{position:absolute;right:88px;top:0;width:320px;height:520px;border-radius:46px;
+    background:linear-gradient(160deg,#18202C,#0A0F16);border:1px solid rgba(200,255,61,.4);
+    box-shadow:0 0 0 9px #0A0E14,0 0 0 10px rgba(200,255,61,.22),0 36px 80px rgba(0,0,0,.65),0 0 100px rgba(200,255,61,.1)}
+  .screen{position:absolute;inset:13px;border-radius:34px;background:#090D13;border:1px solid rgba(255,255,255,.06);overflow:hidden}
+  .notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:86px;height:18px;border-radius:10px;background:#04060A;z-index:5}
+  .shead{display:flex;justify-content:space-between;padding:40px 16px 10px;font:400 11px Consolas;letter-spacing:1px;color:rgba(200,255,61,.8)}
+  .shead .r{color:rgba(242,246,236,.4)}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 13px}
+  .t{aspect-ratio:1;border-radius:14px;display:flex;align-items:center;justify-content:center;
+    font-size:29px;font-family:"Segoe UI Emoji",sans-serif;box-shadow:inset 0 0 0 1px rgba(255,255,255,.13)}
+  .t.new{box-shadow:inset 0 0 0 2px rgba(200,255,61,.85),0 0 18px rgba(200,255,61,.35)}
+  .phone-tag{position:absolute;right:96px;top:530px;padding:10px 18px;border:1px solid rgba(200,255,61,.5);border-radius:8px;
+    background:rgba(200,255,61,.1);font:600 21px Consolas;letter-spacing:2px;color:#DFF7C0}
+
+  .flow{position:absolute;left:298px;top:26px;width:368px;height:470px}
+  .fly{position:absolute;display:flex;align-items:center;justify-content:center;border-radius:16px;
+    font-family:"Segoe UI Emoji",sans-serif;box-shadow:0 0 0 2px rgba(200,255,61,.8),0 14px 30px rgba(0,0,0,.5),0 0 26px rgba(200,255,61,.4)}
+  .fly.f1{left:88px;top:96px;width:64px;height:64px;font-size:32px;transform:rotate(-10deg);background:linear-gradient(135deg,#FFD54A,#FF8A3D)}
+  .fly.f2{left:210px;top:288px;width:56px;height:56px;font-size:27px;transform:rotate(12deg);background:linear-gradient(135deg,#8AB4FF,#5A7BFF)}
+  .streak{position:absolute;height:2px;width:74px;background:linear-gradient(90deg,transparent,rgba(200,255,61,.7));border-radius:2px}
+  .flow-label{position:absolute;left:110px;top:212px;font:400 17px Consolas;letter-spacing:2px;color:rgba(200,255,61,.75)}
+
+  /* rows */
+  .rows{position:absolute;left:64px;right:64px;top:1102px}
+  .row{display:flex;align-items:center;gap:26px;padding:21px 6px;border-top:1px solid rgba(255,255,255,.09)}
+  .row:first-child{border-top:none}
+  .idx{font:700 26px Consolas;color:#C8FF3D;letter-spacing:1px;width:52px}
+  .rt{font-size:30px;font-weight:900;letter-spacing:1px;white-space:nowrap}
+  .rd{margin-left:auto;font:400 20px Consolas;letter-spacing:1px;color:rgba(242,246,236,.55);text-align:right}
+  .arw{color:rgba(200,255,61,.6);font-size:22px}
+
+  .bottom{position:absolute;left:64px;right:64px;bottom:58px;display:flex;justify-content:space-between;align-items:center;
+    font:400 19px Consolas;letter-spacing:2px;color:rgba(242,246,236,.45)}
+  .bottom .d{color:#C8FF3D}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="orb lime"></div><div class="orb cyan"></div>
+  <div class="floor"></div>
+  <div class="br tl"></div><div class="br tr"></div><div class="br bl"></div><div class="br brr"></div>
+
+  <div class="top">
+    <div class="top-row mono"><span class="l">MODULE 01 // ALBUM IMPORT</span><span class="r">HAQI-STATION.SYS</span></div>
+    <div class="seg"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i></div>
+    <div class="rule"></div>
+  </div>
+
+  <div class="title">
+    <h1>相册<span class="lit">导入</span></h1>
+    <div class="latin">ALBUM IMPORT — BATCH LOADER</div>
+    <div class="sub">一次全选 · <em>批量进站</em></div>
+  </div>
+
+  <div class="viz">
+    <div class="stack">
+      <div class="pcard p1">😹<div class="cap mono">IMG_2047.JPG</div></div>
+      <div class="pcard p2">🐸<div class="cap mono">IMG_2048.GIF</div></div>
+      <div class="pcard p3">🗿<div class="cap mono">IMG_2049.PNG</div></div>
+    </div>
+    <div class="stack-tag mono">手机相册 · <b>999+</b> 张</div>
+
+    <div class="flow">
+      <svg width="368" height="470" viewBox="0 0 368 470" fill="none">
+        <path d="M 30 120 C 130 120, 150 240, 250 240 S 330 240, 348 236" stroke="rgba(200,255,61,.75)" stroke-width="2.5" stroke-dasharray="10 9"/>
+        <path d="M 348 236 l -16 -9 m 16 9 l -16 9" stroke="rgba(200,255,61,.75)" stroke-width="2.5"/>
+        <circle cx="122" cy="146" r="5" fill="#C8FF3D"/>
+        <circle cx="212" cy="238" r="5" fill="#C8FF3D"/>
+        <circle cx="300" cy="238" r="5" fill="#C8FF3D"/>
+      </svg>
+      <div class="streak" style="left:26px;top:60px;transform:rotate(8deg)"></div>
+      <div class="streak" style="left:150px;top:330px;transform:rotate(-6deg)"></div>
+      <div class="flow-label mono">BATCH_COPY // ALL</div>
+      <div class="fly f1">😹</div>
+      <div class="fly f2">🐸</div>
+    </div>
+
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="shead mono"><span>HAQI://GRID</span><span class="r">+24</span></div>
+        <div class="grid">
+          <div class="t" style="background:linear-gradient(135deg,#FFD54A,#FF8A3D)">😹</div>
+          <div class="t" style="background:linear-gradient(135deg,#7CFFB2,#2BD9A9)">🐸</div>
+          <div class="t" style="background:linear-gradient(135deg,#8AB4FF,#5A7BFF)">🗿</div>
+          <div class="t" style="background:linear-gradient(135deg,#FF9AE0,#C15BFF)">🤡</div>
+          <div class="t" style="background:linear-gradient(135deg,#5EE7FF,#2B9BFF)">👽</div>
+          <div class="t" style="background:linear-gradient(135deg,#FFE066,#F5A623)">🔥</div>
+          <div class="t" style="background:linear-gradient(135deg,#B5FF5C,#4DD441)">🐶</div>
+          <div class="t new" style="background:linear-gradient(135deg,#FFB3A7,#FF5E62)">💀</div>
+          <div class="t new" style="background:linear-gradient(135deg,#C9B6FF,#8B5CF6)">🎈</div>
+          <div class="t new" style="background:linear-gradient(135deg,#FF8FA3,#FF4D6D)">🍉</div>
+          <div class="t new" style="background:linear-gradient(135deg,#8DF3FF,#38C6D9)">⭐</div>
+          <div class="t" style="background:linear-gradient(135deg,#F6FF8C,#D4E157)">🎮</div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-tag mono">哈气站仓库 · 入库 +24</div>
+  </div>
+
+  <div class="rows">
+    <div class="row">
+      <span class="idx mono">01</span><span class="rt">全格式吃进</span>
+      <span class="rd mono">JPG · PNG · WEBP · BMP · GIF</span><span class="arw">▸</span>
+    </div>
+    <div class="row">
+      <span class="idx mono">02</span><span class="rt">批量搬运</span>
+      <span class="rd mono">一次勾选 · 整队入仓</span><span class="arw">▸</span>
+    </div>
+    <div class="row">
+      <span class="idx mono">03</span><span class="rt">永久绑定</span>
+      <span class="rd mono">原图删除 · 仓库仍在</span><span class="arw">▸</span>
+    </div>
+  </div>
+
+  <div class="bottom mono">
+    <span>HAQI STATION · 表情包管理终端 · ANDROID</span>
+    <span><span class="d">●</span>○○</span>
+  </div>
+
+  <div class="scan"></div>
+  <div class="noise"></div>
+</div>
+</body>
+</html>

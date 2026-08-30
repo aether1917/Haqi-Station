@@ -27,6 +27,7 @@ class SettingsService extends ChangeNotifier {
   static const _themeKey = 'haqi.themeMode';
   static const _colorModeKey = 'haqi.colorMode';
   static const _seedColorKey = 'haqi.seedColor';
+  static const _previewProgramKey = 'haqi.previewProgram';
 
   static SettingsService? _instance;
   static SettingsService get instance => _instance ??= SettingsService._();
@@ -44,6 +45,9 @@ class SettingsService extends ChangeNotifier {
   int _seedColor = kDefaultSeedColor;
   int get seedColor => _seedColor;
 
+  bool _previewProgram = false;
+  bool get previewProgram => _previewProgram;
+
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     _themeMode = switch (prefs.getString(_themeKey)) {
@@ -53,6 +57,7 @@ class SettingsService extends ChangeNotifier {
     };
     _colorMode = AppColorMode.fromId(prefs.getString(_colorModeKey));
     _seedColor = prefs.getInt(_seedColorKey) ?? kDefaultSeedColor;
+    _previewProgram = prefs.getBool(_previewProgramKey) ?? false;
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
@@ -78,5 +83,14 @@ class SettingsService extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_seedColorKey, value);
+  }
+
+  /// 加入/退出预览体验计划：加入后检查更新会包含 beta / alpha 预览版。
+  Future<void> setPreviewProgram(bool joined) async {
+    if (joined == _previewProgram) return;
+    _previewProgram = joined;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_previewProgramKey, joined);
   }
 }

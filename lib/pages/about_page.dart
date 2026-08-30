@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../services/settings_service.dart';
 import '../services/update_service.dart';
-import '../widgets/update_dialog.dart';
+import '../widgets/update_page.dart';
 
 /// 关于：应用信息、版本与 GitHub 仓库链接。
 class AboutPage extends StatefulWidget {
@@ -38,7 +39,10 @@ class _AboutPageState extends State<AboutPage> {
       if (manual) _toast('版本信息未就绪，请稍后重试');
       return;
     }
-    final update = await UpdateService.fetchLatest();
+    final update = await UpdateService.fetchLatest(
+      includePrerelease:
+          SettingsService.instance.previewProgram,
+    );
     if (!mounted) return;
     setState(() => _checking = false);
 
@@ -50,7 +54,7 @@ class _AboutPageState extends State<AboutPage> {
       if (manual) _toast('当前已是最新版本 v$current');
       return;
     }
-    await showUpdateDialog(context, update);
+    await showUpdatePage(context, update);
   }
 
   void _toast(String message) {
@@ -125,6 +129,21 @@ class _AboutPageState extends State<AboutPage> {
                           : Icon(Icons.chevron_right_rounded,
                               color: colors.onSurfaceVariant),
                       onTap: () => _checkUpdate(manual: true),
+                    ),
+                    Divider(height: 1, indent: 56, color: colors.outlineVariant),
+                    ListenableBuilder(
+                      listenable: SettingsService.instance,
+                      builder: (context, _) => SwitchListTile(
+                        secondary: const Icon(Icons.bug_report_outlined),
+                        title: const Text('加入预览体验计划'),
+                        subtitle: const Text('接收 beta / alpha 预览版本更新',
+                            style: TextStyle(fontSize: 12)),
+                        value: SettingsService.instance.previewProgram,
+                        onChanged: (joined) {
+                          SettingsService.instance.setPreviewProgram(joined);
+                          _toast(joined ? '已加入预览体验计划' : '已退出预览体验计划');
+                        },
+                      ),
                     ),
                     Divider(height: 1, indent: 56, color: colors.outlineVariant),
                     ListTile(

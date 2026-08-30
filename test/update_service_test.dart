@@ -27,6 +27,39 @@ void main() {
       expect(UpdateService.isNewer('1.4', '1.3.2'), isTrue);
       expect(UpdateService.isNewer('1', '1.3.2'), isFalse);
     });
+    test('同号正式版优先于预览版（决胜规则）', () {
+      expect(UpdateService.isNewer('1.5.1', '1.5.1-beta'), isTrue);
+      expect(UpdateService.isNewer('1.5.1-beta', '1.5.1'), isFalse);
+      expect(UpdateService.isNewer('1.5.1-alpha', '1.5.1-beta'), isFalse);
+      expect(UpdateService.isNewer('1.5.1-beta', '1.5.0'), isTrue);
+    });
+    test('解析 prerelease 标记', () {
+      final pre = UpdateService.parseRelease({
+        'tag_name': 'v1.5.0-beta',
+        'prerelease': true,
+        'body': 'preview',
+        'assets': [
+          {
+            'name': 'app.apk',
+            'browser_download_url': 'https://x/app.apk',
+          }
+        ],
+      });
+      expect(pre!.prerelease, isTrue);
+      expect(pre.version, '1.5.0-beta');
+
+      final stable = UpdateService.parseRelease({
+        'tag_name': 'v1.5.0',
+        'body': 'stable',
+        'assets': [
+          {
+            'name': 'app.apk',
+            'browser_download_url': 'https://x/app.apk',
+          }
+        ],
+      });
+      expect(stable!.prerelease, isFalse);
+    });
   });
 
   group('UpdateService.parseRelease（GitHub release JSON）', () {

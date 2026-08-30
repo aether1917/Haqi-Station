@@ -48,4 +48,28 @@ void main() {
       expect(settings.colorMode, AppColorMode.appDefault);
     });
   });
+
+  group('SettingsService 预览体验计划', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    test('默认不加入；开关后持久化，重载后还原', () async {
+      final settings = SettingsService.instance;
+      await settings.load();
+      expect(settings.previewProgram, isFalse);
+
+      await settings.setPreviewProgram(true);
+      expect(settings.previewProgram, isTrue);
+
+      final reloaded = SettingsService.instance;
+      await reloaded.load();
+      expect(reloaded.previewProgram, isTrue);
+
+      await reloaded.setPreviewProgram(false);
+      final again = SettingsService.instance;
+      await again.load();
+      expect(again.previewProgram, isFalse);
+    });
+  });
 }

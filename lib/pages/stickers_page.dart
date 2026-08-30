@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
 import '../services/native_share.dart';
@@ -82,14 +83,24 @@ class _StickersPageState extends State<StickersPage> {
 
   Future<void> _import() async {
     if (_importing) return;
+    final source = await _chooseImportSource();
+    if (!mounted || source == null) return;
+
     setState(() => _importing = true);
     try {
-      final picked = await FilePicker.pickFiles(type: FileType.image);
+      List<String> paths;
+      if (source == 'gallery') {
+        // 系统相册选择器：能看到相机、微信、截图以及用户自建的相册。
+        final images = await ImagePicker().pickMultiImage();
+        paths = [for (final x in images) x.path];
+      } else {
+        final picked = await FilePicker.pickFiles(type: FileType.image);
+        paths = [
+          for (final f in picked)
+            if (f.path != null) f.path!,
+        ];
+      }
       if (!mounted) return;
-      final paths = [
-        for (final f in picked)
-          if (f.path != null) f.path!,
-      ];
       if (paths.isEmpty) return;
       final count = await _store.importFiles(paths);
       if (!mounted) return;
@@ -101,6 +112,33 @@ class _StickersPageState extends State<StickersPage> {
     } finally {
       if (mounted) setState(() => _importing = false);
     }
+  }
+
+  /// 选择导入来源：相册（含用户自建相册）或文件。
+  Future<String?> _chooseImportSource() {
+    return showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('从相册选择'),
+              subtitle: const Text('按相册浏览图片和 GIF'),
+              onTap: () => Navigator.pop(sheetContext, 'gallery'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.folder_outlined),
+              title: const Text('从文件选择'),
+              subtitle: const Text('浏览任意目录里的图片文件'),
+              onTap: () => Navigator.pop(sheetContext, 'files'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _deleteSelected() async {

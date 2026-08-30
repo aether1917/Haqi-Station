@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  .stage{position:relative;width:1920px;height:1080px;overflow:hidden;
+    background:radial-gradient(1200px 800px at 72% 40%,#0C1420 0%,#05070B 55%),#05070B;
+    font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#F2F6EC}
+
+  /* ---------- atmosphere ---------- */
+  .orb{position:absolute;border-radius:50%;filter:blur(110px)}
+  .orb.lime{width:620px;height:620px;left:-180px;top:-220px;background:rgba(200,255,61,.13)}
+  .orb.cyan{width:700px;height:700px;right:-120px;top:180px;background:rgba(83,232,255,.10)}
+  .floor{position:absolute;left:-25%;right:-25%;bottom:-120px;height:600px;
+    background-image:linear-gradient(rgba(200,255,61,.15) 1px,transparent 1px),
+                     linear-gradient(90deg,rgba(200,255,61,.15) 1px,transparent 1px);
+    background-size:68px 68px;transform:perspective(920px) rotateX(63deg);transform-origin:50% 100%;
+    -webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 62%)}
+  .scan{position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.02) 0 1px,transparent 1px 4px)}
+  .noise{position:absolute;inset:0;opacity:.045;background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="220" height="220"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2"/></filter><rect width="220" height="220" filter="url(%23n)" opacity="0.7"/></svg>')}
+
+  /* ---------- HUD frame ---------- */
+  .br{position:absolute;width:30px;height:30px;border:2px solid rgba(200,255,61,.55)}
+  .br.tl{top:34px;left:34px;border-right:none;border-bottom:none}
+  .br.tr{top:34px;right:34px;border-left:none;border-bottom:none}
+  .br.bl{bottom:34px;left:34px;border-right:none;border-top:none}
+  .br.brr{bottom:34px;right:34px;border-left:none;border-top:none}
+  .mono{font-family:"Consolas","Cascadia Mono",monospace}
+  .cross{position:absolute;color:rgba(200,255,61,.4);font:400 26px Consolas;letter-spacing:0}
+  .side-tag{position:absolute;right:46px;top:50%;transform:rotate(90deg) translateX(-50%);transform-origin:right top;
+    color:rgba(242,246,236,.22);font:400 19px Consolas;letter-spacing:8px;white-space:nowrap}
+
+  /* ---------- left copy ---------- */
+  .copy{position:absolute;left:110px;top:118px;width:920px}
+  .status{display:flex;align-items:center;gap:14px;font:400 21px Consolas;letter-spacing:2px;color:#C8FF3D}
+  .dot{width:11px;height:11px;border-radius:50%;background:#C8FF3D;box-shadow:0 0 14px #C8FF3D}
+  .status .dim{color:rgba(242,246,236,.45)}
+  .bar{width:64px;height:6px;background:#C8FF3D;margin:44px 0 26px;box-shadow:0 0 18px rgba(200,255,61,.7)}
+  h1{font-size:172px;font-weight:900;line-height:1.04;letter-spacing:6px}
+  h1 .lit{background:linear-gradient(180deg,#EDFFBE,#C8FF3D);-webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 30px rgba(200,255,61,.4))}
+  .latin{margin-top:16px;font-family:Impact,"Arial Narrow",sans-serif;font-size:44px;letter-spacing:6px;
+    color:transparent;-webkit-text-stroke:1.5px rgba(242,246,236,.42)}
+  .tagline{margin-top:38px;display:flex;align-items:center;gap:18px;font-size:54px;font-weight:900}
+  .tagline .sq{width:18px;height:18px;background:#C8FF3D;box-shadow:0 0 16px rgba(200,255,61,.8)}
+  .tagline em{font-style:normal;color:#C8FF3D}
+  .chips{margin-top:44px;display:flex;gap:16px;flex-wrap:wrap}
+  .chip{display:inline-flex;align-items:center;gap:10px;padding:13px 24px;border:1px solid rgba(200,255,61,.45);
+    background:rgba(200,255,61,.07);font:600 21px Consolas,monospace;letter-spacing:2px;color:#DFF7C0;
+    clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px)}
+  .chip.hot{background:#C8FF3D;color:#0B100A;border-color:#C8FF3D;font-weight:700}
+  .chip.hot .ic{width:11px;height:11px;background:#0B100A;flex-shrink:0}
+  .foot{position:absolute;left:110px;bottom:64px;font:400 20px Consolas;letter-spacing:3px;color:rgba(242,246,236,.5)}
+  .foot b{color:#C8FF3D;font-weight:400}
+
+  /* ---------- phone ---------- */
+  .phone{position:absolute;left:1236px;top:158px;width:374px;height:766px;border-radius:54px;
+    background:linear-gradient(160deg,#18202C,#0A0F16);border:1px solid rgba(200,255,61,.4);
+    box-shadow:0 0 0 10px #0A0E14,0 0 0 11px rgba(200,255,61,.22),0 46px 110px rgba(0,0,0,.7),0 0 130px rgba(200,255,61,.12);
+    transform:rotate(-5deg)}
+  .screen{position:absolute;inset:15px;border-radius:40px;background:#090D13;border:1px solid rgba(255,255,255,.06);overflow:hidden}
+  .notch{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:104px;height:22px;border-radius:12px;background:#04060A;z-index:5}
+  .shead{display:flex;justify-content:space-between;padding:48px 20px 14px;font:400 12px Consolas;letter-spacing:1px;color:rgba(200,255,61,.8)}
+  .shead .r{color:rgba(242,246,236,.4)}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:2px 16px 0}
+  .t{aspect-ratio:1;border-radius:18px;display:flex;align-items:center;justify-content:center;
+    font-size:38px;font-family:"Segoe UI Emoji","Noto Color Emoji",sans-serif;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.13)}
+  .slot{aspect-ratio:1;border-radius:18px;border:1.5px dashed rgba(242,246,236,.3)}
+  .lift{position:absolute;left:150px;top:238px;width:98px;height:98px;border-radius:20px;z-index:6;
+    display:flex;align-items:center;justify-content:center;font-size:46px;font-family:"Segoe UI Emoji",sans-serif;
+    background:linear-gradient(135deg,#FFD54A,#FF8A3D);transform:rotate(-8deg) scale(1.12);
+    box-shadow:0 0 0 2px rgba(200,255,61,.9),0 18px 44px rgba(0,0,0,.6),0 0 46px rgba(200,255,61,.55)}
+  .drag-tag{position:absolute;left:132px;top:206px;padding:4px 10px;background:#C8FF3D;color:#0B100A;
+    font:700 13px Consolas;letter-spacing:1px;border-radius:4px;z-index:7}
+  .sfoot{position:absolute;left:0;right:0;bottom:0;padding:14px 20px 18px;display:flex;justify-content:space-between;
+    font:400 12px Consolas;letter-spacing:1px;color:rgba(242,246,236,.35);
+    background:linear-gradient(180deg,transparent,rgba(200,255,61,.06))}
+
+  .float-t{position:absolute;display:flex;align-items:center;justify-content:center;font-family:"Segoe UI Emoji",sans-serif;
+    border-radius:22px;box-shadow:0 0 0 2px rgba(200,255,61,.75),0 22px 50px rgba(0,0,0,.55),0 0 40px rgba(200,255,61,.35)}
+  .ft1{left:1150px;top:92px;width:88px;height:88px;font-size:44px;transform:rotate(9deg);background:linear-gradient(135deg,#8AB4FF,#5A7BFF)}
+  .ft2{left:1748px;top:768px;width:100px;height:100px;font-size:50px;transform:rotate(-11deg);background:linear-gradient(135deg,#7CFFB2,#2BD9A9)}
+  .ft-tag{position:absolute;font:400 15px Consolas;letter-spacing:2px;color:rgba(200,255,61,.65)}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="orb lime"></div><div class="orb cyan"></div>
+  <div class="floor"></div>
+
+  <div class="br tl"></div><div class="br tr"></div><div class="br bl"></div><div class="br brr"></div>
+  <div class="cross" style="left:640px;top:74px">+</div>
+  <div class="cross" style="left:900px;bottom:120px">+</div>
+  <div class="cross" style="left:1080px;top:420px">+</div>
+  <div class="side-tag">HAQI-STATION // MEME TERMINAL // EST.2026</div>
+
+  <div class="copy">
+    <div class="status"><span class="dot"></span>SYS.ONLINE<span class="dim">// HAQI-STATION v1.0.0</span></div>
+    <div class="bar"></div>
+    <h1>哈气<span class="lit">站</span></h1>
+    <div class="latin">HAQI STATION // MEME TERMINAL</div>
+    <div class="tagline"><span class="sq"></span>表情包，<em>排队！</em></div>
+    <div class="chips">
+      <span class="chip hot"><i class="ic"></i>相册导入</span>
+      <span class="chip hot"><i class="ic"></i>自由排序</span>
+      <span class="chip">◉ GIF 自动播放</span>
+      <span class="chip">◈ 开源免费</span>
+    </div>
+  </div>
+
+  <div class="foot">ANDROID&nbsp;&nbsp;·&nbsp;&nbsp;OPEN-SOURCE <b>(MIT)</b>&nbsp;&nbsp;·&nbsp;&nbsp;FREE FOREVER&nbsp;&nbsp;·&nbsp;&nbsp;BUILD 1.0.0</div>
+
+  <div class="phone">
+    <div class="screen">
+      <div class="notch"></div>
+      <div class="shead mono"><span>HAQI://GRID</span><span class="r">132 PIX</span></div>
+      <div class="grid">
+        <div class="t" style="background:linear-gradient(135deg,#FFD54A,#FF8A3D)">😹</div>
+        <div class="t" style="background:linear-gradient(135deg,#7CFFB2,#2BD9A9)">🐸</div>
+        <div class="t" style="background:linear-gradient(135deg,#8AB4FF,#5A7BFF)">🗿</div>
+        <div class="t" style="background:linear-gradient(135deg,#FF9AE0,#C15BFF)">🤡</div>
+        <div class="slot"></div>
+        <div class="t" style="background:linear-gradient(135deg,#5EE7FF,#2B9BFF)">👽</div>
+        <div class="t" style="background:linear-gradient(135deg,#FFE066,#F5A623)">🔥</div>
+        <div class="t" style="background:linear-gradient(135deg,#B5FF5C,#4DD441)">🐶</div>
+        <div class="t" style="background:linear-gradient(135deg,#FFB3A7,#FF5E62)">💀</div>
+        <div class="t" style="background:linear-gradient(135deg,#C9B6FF,#8B5CF6)">🎈</div>
+        <div class="t" style="background:linear-gradient(135deg,#FF8FA3,#FF4D6D)">🍉</div>
+        <div class="t" style="background:linear-gradient(135deg,#8DF3FF,#38C6D9)">⭐</div>
+        <div class="t" style="background:linear-gradient(135deg,#F6FF8C,#D4E157)">🎮</div>
+        <div class="t" style="background:linear-gradient(135deg,#FFC7F0,#F06292)">🍕</div>
+        <div class="t" style="background:linear-gradient(135deg,#A7FFEF,#26C6DA)">🦈</div>
+      </div>
+      <div class="lift">😹</div>
+      <div class="drag-tag mono">// DRAG</div>
+      <div class="sfoot mono"><span>SORT:FREE</span><span>SYNC 100%</span></div>
+    </div>
+  </div>
+
+  <div class="float-t ft1">🗿</div>
+  <div class="float-t ft2">🎮</div>
+  <div class="ft-tag" style="left:1250px;top:104px">OUT-OF-BOX</div>
+  <div class="ft-tag" style="left:1748px;top:884px">T0.KEEP</div>
+
+  <div class="scan"></div>
+  <div class="noise"></div>
+</div>
+</body>
+</html>

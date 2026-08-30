@@ -8,7 +8,7 @@ import 'services/dynamic_scheme.dart';
 import 'services/settings_service.dart';
 import 'services/update_service.dart';
 import 'theme.dart';
-import 'widgets/update_dialog.dart';
+import 'widgets/update_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,15 +41,18 @@ class _HaqiAppState extends State<HaqiApp> {
     Future.delayed(const Duration(seconds: 4), _silentCheckUpdate);
   }
 
-  /// 启动静默检查更新：只在确实有新版本时打扰用户。
+  /// 启动静默检查更新：普通用户只看正式版；加入预览体验计划后
+  /// 包含 beta / alpha。发现新版本时全屏展示，右上角 × 可关闭。
   Future<void> _silentCheckUpdate() async {
     final info = await PackageInfo.fromPlatform();
-    final update = await UpdateService.fetchLatest();
+    final update = await UpdateService.fetchLatest(
+      includePrerelease: widget.settings.previewProgram,
+    );
     if (update == null) return;
     if (!UpdateService.isNewer(update.version, info.version)) return;
     final navigator = _navigatorKey.currentContext;
     if (navigator == null || !navigator.mounted) return;
-    await showUpdateDialog(navigator, update);
+    await showUpdatePage(navigator, update);
   }
 
   Future<void> _fetchDynamicPalette() async {
