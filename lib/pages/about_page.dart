@@ -1,18 +1,68 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../services/update_service.dart';
+import '../widgets/update_dialog.dart';
+
 /// 关于：应用信息、版本与 GitHub 仓库链接。
-class AboutPage extends StatelessWidget {
+class AboutPage extends StatefulWidget {
   const AboutPage({super.key});
 
-  static const _repoUrl = 'https://github.com/aether1917/Haqi-Station';
+  @override
+  State<AboutPage> createState() => _AboutPageState();
+}
 
-  Future<void> _openRepo(BuildContext context) async {
-    final uri = Uri.parse(_repoUrl);
+class _AboutPageState extends State<AboutPage> {
+  PackageInfo? _packageInfo;
+  bool _checking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPackageInfo();
+  }
+
+  Future<void> _loadPackageInfo() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) setState(() => _packageInfo = info);
+  }
+
+  Future<void> _checkUpdate({required bool manual}) async {
+    if (_checking) return;
+    setState(() => _checking = true);
+    final current = _packageInfo?.version;
+    if (current == null) {
+      if (!mounted) return;
+      setState(() => _checking = false);
+      if (manual) _toast('版本信息未就绪，请稍后重试');
+      return;
+    }
+    final update = await UpdateService.fetchLatest();
+    if (!mounted) return;
+    setState(() => _checking = false);
+
+    if (update == null) {
+      if (manual) _toast('检查更新失败，请检查网络后重试');
+      return;
+    }
+    if (!UpdateService.isNewer(update.version, current)) {
+      if (manual) _toast('当前已是最新版本 v$current');
+      return;
+    }
+    await showUpdateDialog(context, update);
+  }
+
+  void _toast(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _openRepo() async {
+    final uri = Uri.parse(kRepoUrl);
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('无法打开链接：$_repoUrl')));
+      if (!mounted) return;
+      _toast('无法打开链接：$kRepoUrl');
     }
   }
 
@@ -20,6 +70,7 @@ class AboutPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final version = _packageInfo?.version;
 
     return Scaffold(
       appBar: AppBar(
@@ -43,7 +94,7 @@ class AboutPage extends StatelessWidget {
               const SizedBox(height: 20),
               Text('哈气站', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
-              Text('Haqi Station v1.3.2',
+              Text('Haqi Station v${version ?? '…'}',
                   style: text.bodyMedium?.copyWith(color: colors.onSurfaceVariant)),
               const SizedBox(height: 16),
               Text(
@@ -58,12 +109,34 @@ class AboutPage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: ListTile(
-                  leading: const Icon(Icons.code_rounded),
-                  title: const Text('GitHub 仓库'),
-                  subtitle: Text('aether1917/Haqi-Station', style: const TextStyle(fontSize: 12)),
-                  trailing: Icon(Icons.open_in_new_rounded, color: colors.onSurfaceVariant),
-                  onTap: () => _openRepo(context),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.system_update_rounded),
+                      title: const Text('检查更新'),
+                      subtitle: Text('当前版本 v${version ?? '…'}',
+                          style: const TextStyle(fontSize: 12)),
+                      trailing: _checking
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2))
+                          : Icon(Icons.chevron_right_rounded,
+                              color: colors.onSurfaceVariant),
+                      onTap: () => _checkUpdate(manual: true),
+                    ),
+                    Divider(height: 1, indent: 56, color: colors.outlineVariant),
+                    ListTile(
+                      leading: const Icon(Icons.code_rounded),
+                      title: const Text('GitHub 仓库'),
+                      subtitle: const Text('aether1917/Haqi-Station',
+                          style: TextStyle(fontSize: 12)),
+                      trailing: Icon(Icons.open_in_new_rounded,
+                          color: colors.onSurfaceVariant),
+                      onTap: _openRepo,
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 32),
