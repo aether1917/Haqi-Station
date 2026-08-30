@@ -2,12 +2,13 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
+import '../services/media_store.dart';
 import '../services/native_share.dart';
 import '../services/sticker_store.dart';
 import '../widgets/sticker_tile.dart';
+import 'media_picker_page.dart';
 import 'sticker_detail_page.dart';
 
 /// 表情包一级界面：分类栏过滤、网格展示、拖拽排序、多选删除、导入、
@@ -90,9 +91,10 @@ class _StickersPageState extends State<StickersPage> {
     try {
       List<String> paths;
       if (source == 'gallery') {
-        // 系统相册选择器：能看到相机、微信、截图以及用户自建的相册。
-        final images = await ImagePicker().pickMultiImage();
-        paths = [for (final x in images) x.path];
+        // 应用内建内容查看器：按相册浏览媒体库（需照片/视频权限）。
+        final uris = await showMediaPicker(context);
+        if (!mounted || uris == null || uris.isEmpty) return;
+        paths = await MediaStoreService.resolveMediaPaths(uris);
       } else {
         final picked = await FilePicker.pickFiles(type: FileType.image);
         paths = [
@@ -126,7 +128,7 @@ class _StickersPageState extends State<StickersPage> {
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
               title: const Text('从相册选择'),
-              subtitle: const Text('按相册浏览图片和 GIF'),
+              subtitle: const Text('应用内按相册浏览图片和 GIF'),
               onTap: () => Navigator.pop(sheetContext, 'gallery'),
             ),
             ListTile(

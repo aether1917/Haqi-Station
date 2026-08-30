@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipDescription
 import android.content.Intent
 import android.net.Uri
+import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -65,6 +66,86 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /// 内建内容查看器：扫描媒体库（图片 + 视频），按修改时间倒序。
+    private fun queryMedia(): List<Map<String, Any>> {
+        val projection = arrayOf(
+            MediaStore.MediaColumns._ID,
+            MediaStore.MediaColumns.BUCKET_DISPLAY_NAME,
+            MediaStore.MediaColumns.DATE_MODIFIED,
+            MediaStore.MediaColumns.MIME_TYPE,
+            MediaStore.MediaColumns.DATA,
+        )
+        val items = ArrayList<Map<String, Any>>()
+
+        fun collect(collection: Uri, isVideo: Boolean) {
+            contentResolver.query(collection, projection, null, null, null)?.use { cursor ->
+                val idC = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+                val bucketC = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.BUCKET_DISPLAY_NAME)
+                val dateC = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_MODIFIED)
+                val mimeC = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.MIME_TYPE)
+                val dataC = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATA)
+                while (cursor.moveToNext()) {
+                    val id = cursor.getLong(idC)
+                    items.add(
+                        mapOf(
+                            "uri" to Uri.withAppendedPath(collection, id.toString()).toString(),
+                            "isVideo" to isVideo,
+                            "bucket" to (cursor.getString(bucketC) ?: "未分类"),
+                            "dateModified" to cursor.getLong(dateC),
+                            "path" to (cursor.getString(dataC) ?: ""),
+                            "mime" to (cursor.getString(mimeC) ?: ""),
+                        )
+                    )
+                }
+            }
+        }
+
+        collect(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, isVideo = false)
+        collect(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, isVideo = true)
+        items.sortByDescending { (it["dateModified"] as Number).toLong() }
+        return items
+    }
+
+    /// 把选中的 content:// 落成可读文件路径：优先用 MediaStore 里的真实路径，
+    /// 不存在（云端等）时复制到应用缓存。
+    private fun resolveMediaPaths(uris: List<String>): List<String> {
+        val folder = File(cacheDir, "shared_import")
+        folder.deleteRecursively()
+        folder.mkdirs()
+        return uris.map { uriString ->
+            val uri = Uri.parse(uriString)
+            val direct = queryDirectPath(uri)
+            if (direct != null && File(direct).exists()) {
+                direct
+            } else {
+                val projection = arrayOf(MediaStore.MediaColumns.MIME_TYPE)
+                val mime = contentResolver.query(uri, projection, null, null, null)
+                    ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+                val ext = when (mime) {
+                    "image/jpeg" -> "jpg"
+                    "image/png" -> "png"
+                    "image/gif" -> "gif"
+                    "image/webp" -> "webp"
+                    "image/bmp" -> "bmp"
+                    "video/mp4" -> "mp4"
+                    else -> "bin"
+                }
+                val target = File(folder, "media_${System.nanoTime()}.$ext")
+                contentResolver.openInputStream(uri)?.use { input ->
+                    target.outputStream().use { output -> input.copyTo(output) }
+                } ?: throw IllegalStateException("无法读取所选内容：$uriString")
+                target.absolutePath
+            }
+        }
+    }
+
+    private fun queryDirectPath(uri: Uri): String? {
+        val projection = arrayOf(MediaStore.MediaColumns.DATA)
+        return contentResolver.query(uri, projection, null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.haqi.station/share")
@@ -78,6 +159,23 @@ class MainActivity : FlutterActivity() {
                             result.success(true)
                         } catch (e: Exception) {
                             result.error("SHARE_FAILED", e.message, null)
+                        }
+                    }
+                    "queryMedia" -> {
+                        try {
+                            result.success(queryMedia())
+                        } catch (e: SecurityException) {
+                            result.error("PERMISSION_DENIED", e.message, null)
+                        } catch (e: Exception) {
+                            result.error("QUERY_FAILED", e.message, null)
+                        }
+                    }
+                    "resolveMediaPaths" -> {
+                        val uris = call.argument<List<String>>("uris") ?: emptyList()
+                        try {
+                            result.success(resolveMediaPaths(uris))
+                        } catch (e: Exception) {
+                            result.error("RESOLVE_FAILED", e.message, null)
                         }
                     }
                     else -> result.notImplemented()

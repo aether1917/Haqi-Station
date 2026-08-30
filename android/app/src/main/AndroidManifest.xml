@@ -2,6 +2,13 @@
     <!-- 检查更新（GitHub Releases API）需要联网；Flutter 模板默认只在
          debug/profile 清单里声明，release 包不带，会导致应用完全无网络。 -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- 内建内容查看器（导入）读取相册：Android 13+ 细分媒体权限，
+         12 及以下用 READ_EXTERNAL_STORAGE。 -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
     <application
         android:label="哈气站"
         android:name="${applicationName}"
