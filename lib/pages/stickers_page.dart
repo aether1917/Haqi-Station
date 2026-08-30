@@ -459,12 +459,8 @@ class _StickersPageState extends State<StickersPage> {
                           itemCount: categories.length,
                           onReorderItem: (oldIndex, newIndex) =>
                               _store.reorderCategory(oldIndex, newIndex),
-                          proxyDecorator: (child, index, animation) =>
-                              Material(
-                            elevation: 2,
-                            color: Colors.transparent,
-                            child: child,
-                          ),
+                          // 不加 elevation：拖拽时分类标签下方不出现阴影。
+                          proxyDecorator: (child, index, animation) => child,
                           itemBuilder: (context, index) {
                             final category = categories[index];
                             return Padding(

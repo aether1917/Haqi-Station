@@ -64,4 +64,16 @@ class MediaStoreService {
       return const [];
     }
   }
+
+  /// 调起系统文件管理器（DocumentsUI）多选图片，
+  /// 返回已复制到应用缓存的文件路径；取消返回空列表。
+  static Future<List<String>> pickFilesSystem() async {
+    try {
+      final paths =
+          await _channel.invokeMethod<List<dynamic>>('pickFilesSystem');
+      return [for (final p in paths ?? const <dynamic>[]) p as String];
+    } on PlatformException {
+      return const [];
+    }
+  }
 }

@@ -5,6 +5,7 @@ import android.content.ClipDescription
 import android.content.Intent
 import android.net.Uri
 import android.provider.MediaStore
+import android.provider.OpenableColumns
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -12,6 +13,9 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
 class MainActivity : FlutterActivity() {
+    /// 系统文件选择器请求码与挂起的 Dart 回调。
+    private val filePickerRequestCode = 42001
+    private var pendingFilePickerResult: MethodChannel.Result? = null
     /// 分享文件给微信/QQ 等：Android 11+ 上仅靠 FLAG_GRANT 走 chooser 会丢
     /// 读权限（微信点开无反应、QQ 能选聊天但发不出文件），必须先给 Intent
     /// 设好 ClipData 再包 chooser，系统才会把权限可靠地传递给目标应用。
@@ -146,6 +150,62 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /// 调起系统文件管理器（DocumentsUI）多选图片，结果经 onActivityResult 返回。
+    private fun launchSystemFilePicker(result: MethodChannel.Result) {
+        val activity = activity ?: run {
+            result.error("NO_ACTIVITY", "应用不在前台", null)
+            return
+        }
+        pendingFilePickerResult = result
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "image/*"
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        }
+        activity.startActivityForResult(intent, filePickerRequestCode)
+    }
+
+    /// 把 SAF 的 content:// 复制成可读文件（文件名取 DISPLAY_NAME，缺省按时间戳）。
+    private fun copyUriToCache(uri: Uri, fallbackExt: String): String {
+        val folder = File(cacheDir, "shared_import")
+        if (!folder.exists()) folder.mkdirs()
+        var name: String? = null
+        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?.use { c -> if (c.moveToFirst()) name = c.getString(0) }
+        val baseName = name?.takeIf { it.isNotBlank() }
+            ?: "file_${System.nanoTime()}.$fallbackExt"
+        val target = File(folder, baseName)
+        contentResolver.openInputStream(uri)?.use { input ->
+            target.outputStream().use { output -> input.copyTo(output) }
+        } ?: throw IllegalStateException("无法读取所选内容：$uri")
+        return target.absolutePath
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == filePickerRequestCode) {
+            val result = pendingFilePickerResult
+            pendingFilePickerResult = null
+            if (result != null) {
+                if (resultCode == RESULT_OK && data != null) {
+                    val paths = ArrayList<String>()
+                    val clip = data.clipData
+                    if (clip != null) {
+                        for (i in 0 until clip.itemCount) {
+                            paths.add(copyUriToCache(clip.getItemAt(i).uri, "jpg"))
+                        }
+                    } else if (data.data != null) {
+                        paths.add(copyUriToCache(data.data!!, "jpg"))
+                    }
+                    result.success(paths)
+                } else {
+                    result.success(emptyList<String>())
+                }
+            }
+            return
+        }
+        super.onActivityResult(requestCode, resultCode, data)
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.haqi.station/share")
@@ -176,6 +236,13 @@ class MainActivity : FlutterActivity() {
                             result.success(resolveMediaPaths(uris))
                         } catch (e: Exception) {
                             result.error("RESOLVE_FAILED", e.message, null)
+                        }
+                    }
+                    "pickFilesSystem" -> {
+                        try {
+                            launchSystemFilePicker(result)
+                        } catch (e: Exception) {
+                            result.error("PICK_FAILED", e.message, null)
                         }
                     }
                     else -> result.notImplemented()
