@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 
+import '../services/native_share.dart';
 import '../services/sticker_store.dart';
 
 /// 表情包二级页面：大图预览 + 分享按钮。
@@ -23,17 +23,12 @@ class StickerDetailPage extends StatelessWidget {
   }
 
   Future<void> _share(BuildContext context) async {
-    final file = File(store.pathOf(sticker));
-    if (!file.existsSync()) {
+    final ok = await NativeShare.shareFiles([File(store.pathOf(sticker))]);
+    if (!context.mounted) return;
+    if (!ok) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('文件不存在，无法分享')));
-      return;
     }
-    // 不带 text：微信对「文件流 + 文本」组合的分享会直接丢弃，
-    // 导致选择微信后无反应（文件名本身已可说明内容）。
-    await SharePlus.instance.share(
-      ShareParams(files: [XFile(file.path)]),
-    );
   }
 
   @override

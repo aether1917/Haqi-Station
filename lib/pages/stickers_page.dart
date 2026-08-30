@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
-import 'package:share_plus/share_plus.dart';
 
+import '../services/native_share.dart';
 import '../services/sticker_store.dart';
 import '../widgets/sticker_tile.dart';
 import 'sticker_detail_page.dart';
@@ -135,20 +135,16 @@ class _StickersPageState extends State<StickersPage> {
   }
 
   /// 多选快速分享：把选中的表情包文件一次性分享出去。
-  /// 注意：分享文件时不要带 text —— 微信对「文件流 + 文本」组合的
-  /// 分享会直接丢弃，导致选择微信后无反应。
   Future<void> _shareSelected() async {
-    final files = [
+    final ok = await NativeShare.shareFiles([
       for (final s in _store.items)
-        if (_selectedIds.contains(s.id) && File(_store.pathOf(s)).existsSync())
-          XFile(_store.pathOf(s)),
-    ];
-    if (files.isEmpty) {
+        if (_selectedIds.contains(s.id)) File(_store.pathOf(s)),
+    ]);
+    if (!mounted) return;
+    if (!ok) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('文件不存在，无法分享')));
-      return;
     }
-    await SharePlus.instance.share(ShareParams(files: files));
   }
 
   /// 多选分类二级菜单：把选中项归入/移出现有分类，或新建分类。
