@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
+
 import '../services/settings_service.dart';
 import 'about_page.dart';
 import 'donation_page.dart';
@@ -15,7 +17,7 @@ class MorePage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('更多', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(t('tabMore'), style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -30,7 +32,7 @@ class MorePage extends StatelessWidget {
               children: [
                 ListTile(
                   leading: const Icon(Icons.settings_outlined),
-                  title: const Text('设置'),
+                  title: Text(t('settings')),
                   trailing: Icon(Icons.chevron_right_rounded, color: colors.onSurfaceVariant),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
@@ -41,7 +43,7 @@ class MorePage extends StatelessWidget {
                 Divider(height: 1, indent: 56, color: colors.outlineVariant),
                 ListTile(
                   leading: const Icon(Icons.info_outline_rounded),
-                  title: const Text('关于'),
+                  title: Text(t('about')),
                   trailing: Icon(Icons.chevron_right_rounded, color: colors.onSurfaceVariant),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(builder: (_) => const AboutPage()),
@@ -61,8 +63,8 @@ class MorePage extends StatelessWidget {
             child: ListTile(
               leading: Icon(Icons.volunteer_activism_outlined,
                   color: colors.primary),
-              title: const Text('捐赠'),
-              subtitle: const Text('请我喝杯奶茶吧', style: TextStyle(fontSize: 12)),
+              title: Text(t('donation')),
+              subtitle: Text(t('donationSubtitle'), style: const TextStyle(fontSize: 12)),
               trailing: Icon(Icons.chevron_right_rounded,
                   color: colors.onSurfaceVariant),
               onTap: () => Navigator.of(context).push(

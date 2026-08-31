@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+
+import '../l10n/l10n.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/settings_service.dart';
@@ -36,7 +38,7 @@ class _AboutPageState extends State<AboutPage> {
     if (current == null) {
       if (!mounted) return;
       setState(() => _checking = false);
-      if (manual) _toast('版本信息未就绪，请稍后重试');
+      if (manual) _toast(t('versionNotReady'));
       return;
     }
     final update = await UpdateService.fetchLatest(
@@ -47,11 +49,11 @@ class _AboutPageState extends State<AboutPage> {
     setState(() => _checking = false);
 
     if (update == null) {
-      if (manual) _toast('检查更新失败，请检查网络后重试');
+      if (manual) _toast(t('checkFailed'));
       return;
     }
     if (!UpdateService.isNewer(update.version, current)) {
-      if (manual) _toast('当前已是最新版本 v$current');
+      if (manual) _toast(t('latest', {'version': current}));
       return;
     }
     await showUpdatePage(context, update);
@@ -66,7 +68,7 @@ class _AboutPageState extends State<AboutPage> {
     final uri = Uri.parse(kRepoUrl);
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (!mounted) return;
-      _toast('无法打开链接：$kRepoUrl');
+      _toast('${t('unableOpen')}: $kRepoUrl');
     }
   }
 
@@ -78,7 +80,7 @@ class _AboutPageState extends State<AboutPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('关于', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(t('about'), style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -96,7 +98,7 @@ class _AboutPageState extends State<AboutPage> {
                 ),
               ),
               const SizedBox(height: 20),
-              Text('哈气站', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+              Text(t('appName'), style: text.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
               Text('Haqi Station v${version ?? '…'}',
                   style: text.bodyMedium?.copyWith(color: colors.onSurfaceVariant)),
@@ -117,8 +119,8 @@ class _AboutPageState extends State<AboutPage> {
                   children: [
                     ListTile(
                       leading: const Icon(Icons.system_update_rounded),
-                      title: const Text('检查更新'),
-                      subtitle: Text('当前版本 v${version ?? '…'}',
+                      title: Text(t('checkUpdate')),
+                      subtitle: Text(t('currentVersion', {'version': version ?? '…'}),
                           style: const TextStyle(fontSize: 12)),
                       trailing: _checking
                           ? const SizedBox(
@@ -135,20 +137,20 @@ class _AboutPageState extends State<AboutPage> {
                       listenable: SettingsService.instance,
                       builder: (context, _) => SwitchListTile(
                         secondary: const Icon(Icons.bug_report_outlined),
-                        title: const Text('加入预览体验计划'),
-                        subtitle: const Text('接收 beta / alpha 预览版本更新',
-                            style: TextStyle(fontSize: 12)),
+                        title: Text(t('previewProgram')),
+                        subtitle: Text(t('previewProgramDesc'),
+                            style: const TextStyle(fontSize: 12)),
                         value: SettingsService.instance.previewProgram,
                         onChanged: (joined) {
                           SettingsService.instance.setPreviewProgram(joined);
-                          _toast(joined ? '已加入预览体验计划' : '已退出预览体验计划');
+                          _toast(joined ? t('joinedPreview') : t('leftPreview'));
                         },
                       ),
                     ),
                     Divider(height: 1, indent: 56, color: colors.outlineVariant),
                     ListTile(
                       leading: const Icon(Icons.code_rounded),
-                      title: const Text('GitHub 仓库'),
+                      title: Text(t('gitHubRepo')),
                       subtitle: const Text('aether1917/Haqi-Station',
                           style: TextStyle(fontSize: 12)),
                       trailing: Icon(Icons.open_in_new_rounded,
@@ -160,7 +162,7 @@ class _AboutPageState extends State<AboutPage> {
               ),
               const SizedBox(height: 32),
               Text(
-                '使用 Flutter 与 Material Design 3 构建',
+                t('builtWithFlutter'),
                 style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
               ),
             ],

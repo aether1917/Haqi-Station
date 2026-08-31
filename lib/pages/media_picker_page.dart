@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../l10n/l10n.dart';
+
 import '../services/media_store.dart';
 
 /// 应用内建内容查看器：按相册浏览媒体库中的照片与视频并多选，
@@ -90,7 +92,7 @@ class _MediaPickerPageState extends State<MediaPickerPage> {
   void _toggleSelection(MediaItem item) {
     if (item.isVideo) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('视频暂不支持作为表情包导入')));
+          SnackBar(content: Text(t('videoNotSupported'))));
       return;
     }
     setState(() {
@@ -107,13 +109,13 @@ class _MediaPickerPageState extends State<MediaPickerPage> {
         appBar: AppBar(
           title: Text(
             _selectedUris.isEmpty
-                ? '选择图片'
-                : '已选 ${_selectedUris.length} 项',
+                ? t('pickImages')
+                : t('selectedCount', {'n': _selectedUris.length}),
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           actions: [
             IconButton(
-              tooltip: '系统文件管理',
+              tooltip: t('systemFiles'),
               icon: const Icon(Icons.folder_outlined),
               onPressed: () async {
                 final navigator = Navigator.of(context);
@@ -131,7 +133,7 @@ class _MediaPickerPageState extends State<MediaPickerPage> {
                   if (!mounted) return;
                   navigator.pop(paths);
                 },
-                child: const Text('导入'),
+                child: Text(t('import')),
               ),
             const SizedBox(width: 4),
           ],
@@ -155,10 +157,10 @@ class _MediaPickerPageState extends State<MediaPickerPage> {
               Icon(Icons.photo_library_outlined,
                   size: 88, color: colors.outlineVariant),
               const SizedBox(height: 16),
-              Text('需要照片和视频访问权限',
+              Text(t('mediaPermissionTitle'),
                   style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
-              Text('授权后即可在应用内按相册浏览并导入表情包',
+              Text(t('mediaPermissionDesc'),
                   textAlign: TextAlign.center,
                   style: Theme.of(context)
                       .textTheme
@@ -168,12 +170,12 @@ class _MediaPickerPageState extends State<MediaPickerPage> {
               FilledButton.icon(
                 onPressed: openAppSettings,
                 icon: const Icon(Icons.settings_rounded),
-                label: const Text('前往授权'),
+                label: Text(t('goGrant')),
               ),
               const SizedBox(height: 8),
               TextButton(
                 onPressed: _prepare,
-                child: const Text('重新检查'),
+                child: Text(t('retry')),
               ),
             ],
           ),
@@ -182,7 +184,7 @@ class _MediaPickerPageState extends State<MediaPickerPage> {
     }
     if (_items.isEmpty) {
       return Center(
-        child: Text('媒体库为空', style: Theme.of(context).textTheme.titleMedium),
+        child: Text(t('mediaEmpty'), style: Theme.of(context).textTheme.titleMedium),
       );
     }
     return Column(
@@ -193,7 +195,7 @@ class _MediaPickerPageState extends State<MediaPickerPage> {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             children: [
-              _bucketChip(label: '全部', value: null),
+              _bucketChip(label: t('all'), value: null),
               for (final entry in _bucketCounts.entries)
                 _bucketChip(
                   label: '${entry.key} (${entry.value})',

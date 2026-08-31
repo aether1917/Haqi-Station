@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
+import '../l10n/l10n.dart';
+
 import '../services/native_share.dart';
 import '../services/sticker_store.dart';
 import '../widgets/sticker_tile.dart';
@@ -94,7 +96,7 @@ class _StickersPageState extends State<StickersPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(count > 0 ? '已导入 $count 个表情包' : '没有可导入的图片（支持 jpg/png/gif/webp/bmp）'),
+          content: Text(count > 0 ? t('imported', {'count': count}) : t('importNone')),
         ),
       );
     } finally {
@@ -107,12 +109,12 @@ class _StickersPageState extends State<StickersPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除表情包'),
-        content: Text('确定删除选中的 $count 个表情包吗？此操作不可撤销。'),
+        title: Text(t('delete')),
+        content: Text(t('deleteStickersConfirm', {'count': count})),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(t('cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -122,7 +124,7 @@ class _StickersPageState extends State<StickersPage> {
               minimumSize: const Size(72, 40),
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('删除'),
+            child: Text(t('delete')),
           ),
         ],
       ),
@@ -132,7 +134,7 @@ class _StickersPageState extends State<StickersPage> {
     _exitSelectMode();
     if (!mounted) return;
     ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('已删除 $count 个表情包')));
+        .showSnackBar(SnackBar(content: Text(t('deleted', {'count': count}))));
   }
 
   /// 多选快速分享：把选中的表情包文件一次性分享出去。
@@ -144,7 +146,7 @@ class _StickersPageState extends State<StickersPage> {
     if (!mounted) return;
     if (!ok) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('文件不存在，无法分享')));
+          .showSnackBar(SnackBar(content: Text(t('noFileShare'))));
     }
   }
 
@@ -169,7 +171,7 @@ class _StickersPageState extends State<StickersPage> {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      '分类（已选 ${ids.length} 项）',
+                      '${t('category')}（${t('selectedCount', {'n': ids.length})}）',
                       style: Theme.of(context)
                           .textTheme
                           .titleMedium
@@ -190,7 +192,7 @@ class _StickersPageState extends State<StickersPage> {
                             child: Align(
                               alignment: Alignment.centerLeft,
                               child: Text(
-                                '还没有分类，点下方「新建分类」创建',
+                                t('noCategoriesHint'),
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodySmall
@@ -210,7 +212,7 @@ class _StickersPageState extends State<StickersPage> {
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.add_rounded),
-                  title: const Text('新建分类'),
+                  title: Text(t('createCategory')),
                   onTap: () {
                     Navigator.pop(sheetContext);
                     _createCategory();
@@ -253,7 +255,7 @@ class _StickersPageState extends State<StickersPage> {
                 navigator.pop();
                 _exitSelectMode();
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text('已从「$category」移出 $count 个表情包')));
+                    content: Text(t('removed', {'name': category, 'n': count}))));
               },
             ),
       onTap: () async {
@@ -264,7 +266,7 @@ class _StickersPageState extends State<StickersPage> {
         navigator.pop();
         _exitSelectMode();
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('已把 ${ids.length} 个表情包归入「$category」')));
+            SnackBar(content: Text(t('assigned', {'name': category, 'n': ids.length}))));
       },
     );
   }
@@ -275,14 +277,14 @@ class _StickersPageState extends State<StickersPage> {
     final name = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('新建分类'),
+        title: Text(t('createCategory')),
         content: TextField(
           controller: controller,
           autofocus: true,
           maxLength: 6,
-          decoration: const InputDecoration(
-            labelText: '分类名称',
-            hintText: '最多 3 个汉字（或 6 个英文）',
+          decoration: InputDecoration(
+            labelText: t('categoryName'),
+            hintText: t('maxNameHint'),
             counterText: '',
           ),
           onChanged: (value) {
@@ -297,12 +299,12 @@ class _StickersPageState extends State<StickersPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(t('cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
             onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('创建'),
+            child: Text(t('create')),
           ),
         ],
       ),
@@ -318,8 +320,8 @@ class _StickersPageState extends State<StickersPage> {
     _exitSelectMode();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(isNew
-          ? '已创建分类「$trimmed」，含 $count 个表情包'
-          : '已把 $count 个表情包归入「$trimmed」'),
+          ? t('categoryCreated', {'name': trimmed, 'n': count})
+          : t('assigned', {'name': trimmed, 'n': count})),
     ));
   }
 
@@ -364,7 +366,7 @@ class _StickersPageState extends State<StickersPage> {
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.add_rounded),
-                label: const Text('导入'),
+                label: Text(t('import')),
               ),
       ),
     );
@@ -372,10 +374,10 @@ class _StickersPageState extends State<StickersPage> {
 
   PreferredSizeWidget _buildNormalAppBar() {
     return AppBar(
-      title: const Text('哈气站', style: TextStyle(fontWeight: FontWeight.bold)),
+      title: Text(t('appName'), style: const TextStyle(fontWeight: FontWeight.bold)),
       actions: [
         IconButton(
-          tooltip: '选择',
+          tooltip: t('select'),
           icon: const Icon(Icons.checklist_rounded),
           onPressed: () => _enterSelectMode(),
         ),
@@ -389,26 +391,26 @@ class _StickersPageState extends State<StickersPage> {
     final colors = Theme.of(context).colorScheme;
     return AppBar(
       leading: IconButton(
-        tooltip: '退出选择',
+        tooltip: t('deselectAll'),
         icon: const Icon(Icons.close_rounded),
         onPressed: _exitSelectMode,
       ),
-      title: Text('已选 ${_selectedIds.length} 项',
+      title: Text(t('selectedCount', {'n': _selectedIds.length}),
           style: const TextStyle(fontWeight: FontWeight.bold)),
       backgroundColor: colors.surfaceContainerLow,
       actions: [
         IconButton(
-          tooltip: '分类',
+          tooltip: t('category'),
           icon: const Icon(Icons.label_outline_rounded),
           onPressed: _selectedIds.isEmpty ? null : _showCategorySheet,
         ),
         IconButton(
-          tooltip: '分享',
+          tooltip: t('share'),
           icon: const Icon(Icons.share_rounded),
           onPressed: _selectedIds.isEmpty ? null : _shareSelected,
         ),
         IconButton(
-          tooltip: _selectedIds.length == _store.count ? '取消全选' : '全选',
+          tooltip: _selectedIds.length == _store.count ? t('deselectAll') : t('selectAll'),
           icon: Icon(_selectedIds.length == _store.count
               ? Icons.deselect_rounded
               : Icons.select_all_rounded),
@@ -423,7 +425,7 @@ class _StickersPageState extends State<StickersPage> {
           }),
         ),
         IconButton(
-          tooltip: '删除',
+          tooltip: t('delete'),
           icon: Icon(Icons.delete_outline_rounded, color: colors.error),
           onPressed:
               _selectedIds.isEmpty ? null : () => _deleteSelected(),
@@ -464,7 +466,7 @@ class _StickersPageState extends State<StickersPage> {
                       key: ValueKey(categories[index]),
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: _categoryChip(
-                          label: categories[index],
+                          label: _categoryLabel(categories[index]),
                           value: categories[index]),
                     ),
                   ),
@@ -485,7 +487,7 @@ class _StickersPageState extends State<StickersPage> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: IconButton(
-        tooltip: '管理分类',
+        tooltip: t('manageCategories'),
         icon: Icon(Icons.tune_rounded, color: colors.onSurfaceVariant),
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute<void>(
@@ -494,6 +496,13 @@ class _StickersPageState extends State<StickersPage> {
       ),
     );
   }
+
+  /// 分类栏显示名：内置「全部 / 未分类」跟随界面语言，其余原样。
+  String _categoryLabel(String category) => switch (category) {
+        kAllCategory => t('all'),
+        kUncategorizedCategory => t('uncategorized'),
+        _ => category,
+      };
 
   Widget _categoryChip({required String label, required String? value}) {
     final selected = _activeCategory == value;
@@ -558,12 +567,12 @@ class _StickersPageState extends State<StickersPage> {
           Icon(Icons.collections_rounded, size: 88, color: colors.outlineVariant),
           const SizedBox(height: 16),
           Text(
-            filtering ? '该分类下还没有表情包' : '还没有表情包',
+            filtering ? t('emptyCategory') : t('emptyStickers'),
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
           Text(
-            filtering ? '长按表情包可在多选里归入分类' : '点击右下角「导入」添加图片或 GIF',
+            filtering ? t('emptyCategoryHint') : t('emptyStickersHint'),
             style: Theme.of(context)
                 .textTheme
                 .bodyMedium

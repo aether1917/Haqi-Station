@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
 import '../services/settings_service.dart';
 import '../widgets/color_picker.dart';
 
@@ -15,12 +16,41 @@ class SettingsPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('设置', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(t('settings'), style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
-          _sectionLabel(context, '外观'),
+          _sectionLabel(context, t('language')),
+          Container(
+            decoration: BoxDecoration(
+              color: colors.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: ListenableBuilder(
+              listenable: settings,
+              builder: (context, _) => RadioGroup<AppLanguage>(
+                groupValue: settings.language,
+                onChanged: (lang) {
+                  if (lang != null) settings.setLanguage(lang);
+                },
+                child: Column(
+                  children: [
+                    for (final lang in AppLanguage.values)
+                      RadioListTile<AppLanguage>(
+                        value: lang,
+                        title: Text(languageLabel(lang)),
+                        secondary: Icon(lang == AppLanguage.system
+                            ? Icons.language_rounded
+                            : Icons.translate_rounded),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          _sectionLabel(context, t('appearance')),
           Container(
             decoration: BoxDecoration(
               color: colors.surfaceContainerLow,
@@ -34,21 +64,21 @@ class SettingsPage extends StatelessWidget {
                 onChanged: (mode) {
                   if (mode != null) settings.setThemeMode(mode);
                 },
-                child: const Column(
+                child: Column(
                   children: [
                     RadioListTile<ThemeMode>(
                       value: ThemeMode.system,
-                      title: Text('跟随系统'),
+                      title: Text(t('followSystem')),
                       secondary: Icon(Icons.brightness_auto_rounded),
                     ),
                     RadioListTile<ThemeMode>(
                       value: ThemeMode.light,
-                      title: Text('浅色模式'),
+                      title: Text(t('lightMode')),
                       secondary: Icon(Icons.light_mode_outlined),
                     ),
                     RadioListTile<ThemeMode>(
                       value: ThemeMode.dark,
-                      title: Text('深色模式'),
+                      title: Text(t('darkMode')),
                       secondary: Icon(Icons.dark_mode_outlined),
                     ),
                   ],
@@ -72,13 +102,13 @@ class SettingsPage extends StatelessWidget {
                 },
                 child: Column(
                   children: [
-                    const RadioListTile<AppColorMode>(
+                    RadioListTile<AppColorMode>(
                       value: AppColorMode.appDefault,
-                      title: Text('默认配色'),
-                      subtitle: Text('活力粉主题'),
+                      title: Text(t('defaultColor')),
+                      subtitle: Text(t('defaultColorDesc')),
                       secondary: Icon(Icons.palette_outlined),
                     ),
-                    const RadioListTile<AppColorMode>(
+                    RadioListTile<AppColorMode>(
                       value: AppColorMode.dynamic,
                       title: Text('动态取色'),
                       subtitle: Text('跟随 Android 12+ 系统壁纸配色，\n不支持时自动回退默认配色'),

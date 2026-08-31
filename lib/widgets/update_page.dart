@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
 import '../services/update_service.dart';
 
 /// 全屏「发现新版本」页：展示 Release Notes，右上角 × 可关闭，
@@ -30,7 +31,7 @@ class UpdatePage extends StatelessWidget {
             Align(
               alignment: Alignment.topRight,
               child: IconButton(
-                tooltip: '关闭',
+                tooltip: t('close'),
                 icon: const Icon(Icons.close_rounded),
                 onPressed: () => Navigator.pop(context),
               ),
@@ -44,7 +45,7 @@ class UpdatePage extends StatelessWidget {
                     Icon(Icons.rocket_launch_rounded,
                         size: 56, color: colors.primary),
                     const SizedBox(height: 16),
-                    Text('发现新版本', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                    Text(t('updateFound'), style: text.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -61,7 +62,7 @@ class UpdatePage extends StatelessWidget {
                               color: colors.secondaryContainer,
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: Text('预览版',
+                            child: Text(t('previewBadge'),
                                 style: text.labelSmall?.copyWith(
                                     color: colors.onSecondaryContainer)),
                           ),

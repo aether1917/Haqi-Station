@@ -1,8 +1,10 @@
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:material_color_utilities/material_color_utilities.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import 'l10n/l10n.dart';
 import 'pages/home_page.dart';
 import 'services/dynamic_scheme.dart';
 import 'services/settings_service.dart';
@@ -86,10 +88,21 @@ class _HaqiAppState extends State<HaqiApp> {
       listenable: widget.settings,
       builder: (context, _) {
         final (light, dark) = _resolveSchemes();
+        final language = widget.settings.language;
         return MaterialApp(
-          title: '哈气站',
+          title: t('appName'),
           debugShowCheckedModeBanner: false,
           navigatorKey: _navigatorKey,
+          // 语言：跟随系统时交给系统解析；指定时强制使用所选语言。
+          locale: language == AppLanguage.system
+              ? null
+              : localeOf(language),
+          supportedLocales: kSupportedLocales,
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
           theme: buildLightTheme(light),
           darkTheme: buildDarkTheme(dark),
           themeMode: widget.settings.themeMode,

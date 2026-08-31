@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
 import '../services/sticker_store.dart';
 
 /// 分类管理页：点选一个分类后，右上角可重命名或删除。
@@ -23,14 +24,14 @@ class _CategoryManagePageState extends State<CategoryManagePage> {
     final name = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('重命名分类'),
+        title: Text(t('renameCategory')),
         content: TextField(
           controller: controller,
           autofocus: true,
           maxLength: 6,
-          decoration: const InputDecoration(
-            labelText: '分类名称',
-            hintText: '最多 3 个汉字（或 6 个英文）',
+          decoration: InputDecoration(
+            labelText: t('categoryName'),
+            hintText: t('maxNameHint'),
             counterText: '',
           ),
           onChanged: (value) {
@@ -45,12 +46,12 @@ class _CategoryManagePageState extends State<CategoryManagePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(t('cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
             onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('确定'),
+            child: Text(t('confirm')),
           ),
         ],
       ),
@@ -60,8 +61,8 @@ class _CategoryManagePageState extends State<CategoryManagePage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(newName == null
-          ? '名称无效：不能为空、超长或与现有分类同名'
-          : '已重命名为「$newName」'),
+          ? t('invalidName')
+          : t('renamedTo', {'name': newName})),
     ));
     if (newName != null) setState(() => _selected = newName);
   }
@@ -81,11 +82,11 @@ class _CategoryManagePageState extends State<CategoryManagePage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('删除分类'),
-        content: Text('删除分类「$selected」？其中 $count 个表情包将变为未分类。'),
+        content: Text(t('deleteCategoryConfirm', {'name': selected, 'count': count})),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(t('cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -94,7 +95,7 @@ class _CategoryManagePageState extends State<CategoryManagePage> {
               minimumSize: const Size(72, 40),
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('删除'),
+            child: Text(t('delete')),
           ),
         ],
       ),
@@ -104,7 +105,7 @@ class _CategoryManagePageState extends State<CategoryManagePage> {
     if (!mounted) return;
     setState(() => _selected = null);
     ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('已删除分类「$selected」')));
+        .showSnackBar(SnackBar(content: Text(t('categoryDeleted', {'name': selected}))));
   }
 
   @override
@@ -112,15 +113,15 @@ class _CategoryManagePageState extends State<CategoryManagePage> {
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('管理分类', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(t('manageCategories'), style: const TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
-            tooltip: '重命名',
+            tooltip: t('rename'),
             icon: const Icon(Icons.drive_file_rename_outline_rounded),
             onPressed: _selected == null ? null : _rename,
           ),
           IconButton(
-            tooltip: '删除',
+            tooltip: t('delete'),
             icon: Icon(Icons.delete_outline_rounded,
                 color: _selected == null ? null : colors.error),
             onPressed: _selected == null ? null : _delete,
@@ -135,7 +136,7 @@ class _CategoryManagePageState extends State<CategoryManagePage> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Text('选择一个分类，可在右上角删除或重命名',
+              child: Text(t('selectCategoryHint'),
                   style: Theme.of(context)
                       .textTheme
                       .bodySmall
@@ -143,9 +144,13 @@ class _CategoryManagePageState extends State<CategoryManagePage> {
             ),
             for (final c in widget.store.categories)
               ListTile(
-                title: Text(c),
+                title: Text(c == kAllCategory
+                    ? t('all')
+                    : c == kUncategorizedCategory
+                        ? t('uncategorized')
+                        : c),
                 subtitle: c == kAllCategory || c == kUncategorizedCategory
-                    ? const Text('内置分类，不可删除', style: TextStyle(fontSize: 12))
+                    ? Text(t('builtinNoDelete'), style: const TextStyle(fontSize: 12))
                     : null,
                 trailing: _selected == c
                     ? Icon(Icons.check_circle_rounded, color: colors.primary)

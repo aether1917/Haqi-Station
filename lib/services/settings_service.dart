@@ -4,6 +4,8 @@ library;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../l10n/l10n.dart';
+
 /// 色彩模式：内置默认粉 / 跟随系统动态取色 / 自定义种子色。
 enum AppColorMode {
   appDefault('default'),
@@ -28,6 +30,7 @@ class SettingsService extends ChangeNotifier {
   static const _colorModeKey = 'haqi.colorMode';
   static const _seedColorKey = 'haqi.seedColor';
   static const _previewProgramKey = 'haqi.previewProgram';
+  static const _languageKey = 'haqi.language';
 
   static SettingsService? _instance;
   static SettingsService get instance => _instance ??= SettingsService._();
@@ -48,6 +51,9 @@ class SettingsService extends ChangeNotifier {
   bool _previewProgram = false;
   bool get previewProgram => _previewProgram;
 
+  AppLanguage _language = AppLanguage.system;
+  AppLanguage get language => _language;
+
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     _themeMode = switch (prefs.getString(_themeKey)) {
@@ -58,7 +64,14 @@ class SettingsService extends ChangeNotifier {
     _colorMode = AppColorMode.fromId(prefs.getString(_colorModeKey));
     _seedColor = prefs.getInt(_seedColorKey) ?? kDefaultSeedColor;
     _previewProgram = prefs.getBool(_previewProgramKey) ?? false;
+    _language = AppLanguage.fromId(prefs.getString(_languageKey));
+    setCurrentLanguage(effectiveLanguage);
   }
+
+  /// 实际生效的语言：跟随系统时按系统语言解析。
+  AppLanguage get effectiveLanguage => _language == AppLanguage.system
+      ? systemLanguage()
+      : _language;
 
   Future<void> setThemeMode(ThemeMode mode) async {
     if (mode == _themeMode) return;
@@ -92,5 +105,15 @@ class SettingsService extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_previewProgramKey, joined);
+  }
+
+  /// 设置界面语言（跟随系统 / 5 种语言）。
+  Future<void> setLanguage(AppLanguage language) async {
+    if (language == _language) return;
+    _language = language;
+    setCurrentLanguage(effectiveLanguage);
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_languageKey, language.id);
   }
 }
