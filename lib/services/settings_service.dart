@@ -28,6 +28,7 @@ class SettingsService extends ChangeNotifier {
   static const _colorModeKey = 'haqi.colorMode';
   static const _seedColorKey = 'haqi.seedColor';
   static const _previewProgramKey = 'haqi.previewProgram';
+  static const _categoryBarRowsKey = 'haqi.categoryBarRows';
 
   static SettingsService? _instance;
   static SettingsService get instance => _instance ??= SettingsService._();
@@ -48,6 +49,10 @@ class SettingsService extends ChangeNotifier {
   bool _previewProgram = false;
   bool get previewProgram => _previewProgram;
 
+  /// 分类栏布局：1 = 单排（横向滚动，支持拖拽排序），2 = 双排（换行展示）。
+  int _categoryBarRows = 1;
+  int get categoryBarRows => _categoryBarRows;
+
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     _themeMode = switch (prefs.getString(_themeKey)) {
@@ -58,6 +63,7 @@ class SettingsService extends ChangeNotifier {
     _colorMode = AppColorMode.fromId(prefs.getString(_colorModeKey));
     _seedColor = prefs.getInt(_seedColorKey) ?? kDefaultSeedColor;
     _previewProgram = prefs.getBool(_previewProgramKey) ?? false;
+    _categoryBarRows = prefs.getInt(_categoryBarRowsKey) == 2 ? 2 : 1;
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
@@ -92,5 +98,15 @@ class SettingsService extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_previewProgramKey, joined);
+  }
+
+  /// 设置分类栏布局：单排（1）或双排（2）。
+  Future<void> setCategoryBarRows(int rows) async {
+    final value = rows == 2 ? 2 : 1;
+    if (value == _categoryBarRows) return;
+    _categoryBarRows = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_categoryBarRowsKey, value);
   }
 }

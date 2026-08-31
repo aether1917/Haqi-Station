@@ -14,6 +14,25 @@ const Set<String> kAllowedExtensions = {
   'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp',
 };
 
+/// 内置默认分类（始终存在于分类栏，不可删除/重命名，可拖拽排序）。
+const String kAllCategory = '全部';
+const String kUncategorizedCategory = '未分类';
+
+/// 分类名显示宽度上限：一个中文（全角）计 1，其他字符计 0.5。
+const double kMaxCategoryNameWidth = 3.0;
+
+double categoryNameWidth(String name) {
+  var width = 0.0;
+  for (final rune in name.runes) {
+    final isFullWidth = (rune >= 0x2E80 && rune <= 0x9FFF) ||
+        (rune >= 0xF900 && rune <= 0xFAFF) ||
+        (rune >= 0xFF01 && rune <= 0xFF60) ||
+        (rune >= 0x3000 && rune <= 0x303E);
+    width += isFullWidth ? 1 : 0.5;
+  }
+  return width;
+}
+
 class Sticker {
   Sticker({
     required this.id,
@@ -95,11 +114,17 @@ class StickerStore extends ChangeNotifier {
       ..addAll(_decode(raw));
     // 清理孤儿元数据（文件已丢失的记录）。
     _items.removeWhere((s) => !File(pathOf(s)).existsSync());
-    // 只保留仍被引用的分类，避免删除表情包后堆积空分类。
+    // 分类栏完整顺序（含默认两个分类）。老数据没有默认分类时补到最前；
+    // 用户自建分类只在仍被引用时保留，默认分类永远保留（可排序不可删）。
+    final saved = prefs.getStringList(_categoriesKey) ?? const <String>[];
     _categories
       ..clear()
-      ..addAll(prefs.getStringList(_categoriesKey) ?? const <String>[])
-      ..retainWhere((c) => _items.any((s) => s.category == c));
+      ..addAll(saved)
+      ..remove(kAllCategory)
+      ..remove(kUncategorizedCategory)
+      ..retainWhere((c) => _items.any((s) => s.category == c))
+      ..insert(0, kUncategorizedCategory)
+      ..insert(0, kAllCategory);
     _loaded = true;
     notifyListeners();
   }
@@ -166,19 +191,50 @@ class StickerStore extends ChangeNotifier {
       }
     }
     _items.removeWhere((s) => idSet.contains(s.id));
-    // 一并清理不再被引用的分类。
-    _categories.retainWhere((c) => _items.any((s) => s.category == c));
+    // 一并清理不再被引用的分类（默认分类保留）。
+    _pruneCategories();
     await _persist();
     notifyListeners();
   }
 
   /// 创建分类并把选中的表情包归入其中；同名分类已存在时直接归入不重复建。
-  /// 名称去除首尾空白后为空则返回 null。
+  /// 名称去除首尾空白、不得超过显示宽度上限、不得与内置分类同名，
+  /// 违规或为空返回 null。
   Future<String?> createCategory(String name, Iterable<String> stickerIds) async {
-    final trimmed = name.trim();
-    if (trimmed.isEmpty) return null;
+    final trimmed = _validateCategoryName(name);
+    if (trimmed == null) return null;
     if (!_categories.contains(trimmed)) _categories.add(trimmed);
     await assignCategory(trimmed, stickerIds);
+    return trimmed;
+  }
+
+  /// 重命名分类：其下表情包的分类标记同步更新。
+  /// 名称违规/与内置同名/重名/原分类不存在时返回 null。
+  Future<String?> renameCategory(String oldName, String newName) async {
+    final trimmed = _validateCategoryName(newName);
+    if (trimmed == null) return null;
+    if (trimmed == oldName) return oldName;
+    if (!_categories.contains(oldName)) return null;
+    if (_categories.contains(trimmed)) return null;
+    final index = _categories.indexOf(oldName);
+    _categories[index] = trimmed;
+    for (final s in _items) {
+      if (s.category == oldName) s.category = trimmed;
+    }
+    notifyListeners();
+    await _persist();
+    return trimmed;
+  }
+
+  /// 分类名规范化校验：非空、去首尾空白、不超宽度上限、不与内置同名。
+  /// 通过返回去除空白后的名称，否则返回 null。
+  String? _validateCategoryName(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return null;
+    if (trimmed == kAllCategory || trimmed == kUncategorizedCategory) {
+      return null;
+    }
+    if (categoryNameWidth(trimmed) > kMaxCategoryNameWidth) return null;
     return trimmed;
   }
 
@@ -198,9 +254,17 @@ class StickerStore extends ChangeNotifier {
     for (final s in _items) {
       if (ids.contains(s.id) && s.category == name) s.category = null;
     }
-    _categories.retainWhere((c) => _items.any((s) => s.category == c));
+    _pruneCategories();
     notifyListeners();
     await _persist();
+  }
+
+  /// 清理不再被任何表情包引用的分类（内置默认分类保留）。
+  void _pruneCategories() {
+    _categories.retainWhere((c) =>
+        c == kAllCategory ||
+        c == kUncategorizedCategory ||
+        _items.any((s) => s.category == c));
   }
 
   /// 分类栏拖拽排序。配合框架 `onReorderItem` 回调（已由框架调整索引），
@@ -220,8 +284,9 @@ class StickerStore extends ChangeNotifier {
     await _persist();
   }
 
-  /// 删除分类本身，其下表情包全部变为未分类。
+  /// 删除分类本身，其下表情包全部变为未分类；内置分类不可删除。
   Future<void> deleteCategory(String name) async {
+    if (name == kAllCategory || name == kUncategorizedCategory) return;
     _categories.remove(name);
     for (final s in _items) {
       if (s.category == name) s.category = null;

@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
 import '../services/native_share.dart';
+import '../services/settings_service.dart';
 import '../services/sticker_store.dart';
 import '../widgets/sticker_tile.dart';
+import 'category_manage_page.dart';
 import 'media_picker_page.dart';
 import 'sticker_detail_page.dart';
 
@@ -25,6 +27,7 @@ class _StickersPageState extends State<StickersPage> {
   bool _importing = false;
 
   /// 当前过滤的分类：null = 全部；空串 = 未分类；其他 = 分类名。
+  /// 当前过滤的分类：null = 不过滤（全部）；「未分类」为其自身。
   String? _activeCategory;
 
   @override
@@ -41,10 +44,10 @@ class _StickersPageState extends State<StickersPage> {
     super.dispose();
   }
 
-  /// 分类被删除或清空后，把失效的过滤器回退到「全部」。
+  /// 分类被删除/重命名后，把失效的过滤器回退到「全部」。
   void _ensureValidFilter() {
     final active = _activeCategory;
-    if (active == null || active.isEmpty) return;
+    if (active == null) return;
     if (!_store.categories.contains(active) && mounted) {
       setState(() => _activeCategory = null);
     }
@@ -54,7 +57,7 @@ class _StickersPageState extends State<StickersPage> {
   List<Sticker> get _visibleItems {
     final active = _activeCategory;
     if (active == null) return _store.items;
-    if (active.isEmpty) {
+    if (active == kUncategorizedCategory) {
       return [for (final s in _store.items) if (s.uncategorized) s];
     }
     return [for (final s in _store.items) if (s.category == active) s];
@@ -174,20 +177,36 @@ class _StickersPageState extends State<StickersPage> {
                     ),
                   ),
                 ),
-                if (categories.isEmpty)
-                  Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        '还没有分类，点下方「新建分类」创建',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant),
-                      ),
+                // 分类多时可滚动，避免内容溢出无法操作（修复无法滚动 bug）。
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (categories.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 8),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                '还没有分类，点下方「新建分类」创建',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant),
+                              ),
+                            ),
+                          ),
+                        for (final c in categories)
+                          _sheetCategoryTile(sheetContext, c, ids),
+                      ],
                     ),
                   ),
-                for (final c in categories) _sheetCategoryTile(sheetContext, c, ids),
+                ),
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.add_rounded),
@@ -250,7 +269,7 @@ class _StickersPageState extends State<StickersPage> {
     );
   }
 
-  /// 新建分类：弹窗内可修改分类名称，确认后把选中项归入该分类。
+  /// 新建分类：弹窗内可修改分类名称（限长），确认后把选中项归入该分类。
   Future<void> _createCategory() async {
     final controller = TextEditingController(text: '新分类');
     final name = await showDialog<String>(
@@ -260,10 +279,19 @@ class _StickersPageState extends State<StickersPage> {
         content: TextField(
           controller: controller,
           autofocus: true,
+          maxLength: 6,
           decoration: const InputDecoration(
             labelText: '分类名称',
-            hintText: '给这个分类起个名字',
+            hintText: '最多 3 个汉字（或 6 个英文）',
+            counterText: '',
           ),
+          onChanged: (value) {
+            if (categoryNameWidth(value) > kMaxCategoryNameWidth) {
+              controller.text = value.substring(0, value.length - 1);
+              controller.selection = TextSelection.collapsed(
+                  offset: controller.text.length);
+            }
+          },
           onSubmitted: (value) => Navigator.pop(context, value),
         ),
         actions: [
@@ -293,39 +321,6 @@ class _StickersPageState extends State<StickersPage> {
           ? '已创建分类「$trimmed」，含 $count 个表情包'
           : '已把 $count 个表情包归入「$trimmed」'),
     ));
-  }
-
-  /// 长按分类胶囊删除分类：其下表情包变为未分类。
-  Future<void> _confirmDeleteCategory(String name) async {
-    final count = _store.items.where((s) => s.category == name).length;
-    final colors = Theme.of(context).colorScheme;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('删除分类'),
-        content: Text('删除分类「$name」？其中 $count 个表情包将变为未分类。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: colors.error,
-              foregroundColor: colors.onError,
-              minimumSize: const Size(72, 40),
-            ),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    await _store.deleteCategory(name);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('已删除分类「$name」')));
   }
 
   void _openDetail(Sticker sticker) async {
@@ -439,61 +434,59 @@ class _StickersPageState extends State<StickersPage> {
     );
   }
 
-  /// 标题栏下方的分类栏：全部 / 未分类 固定在前，
-  /// 自定义分类支持长按拖拽排序（× 删除）。
+  /// 分类栏：默认「全部 / 未分类」与自定义分类都在列表里，可长按拖拽排序
+  /// （单排横向滚动模式）；布局支持单排 / 双排（设置切换）；末尾有管理按钮。
   PreferredSizeWidget _buildCategoryBar() {
+    final double barHeight = _barHeight();
     return PreferredSize(
-      preferredSize: const Size.fromHeight(56),
+      preferredSize: Size.fromHeight(barHeight),
       child: Container(
-        height: 56,
-        alignment: Alignment.centerLeft,
+        height: barHeight,
         color: Theme.of(context).appBarTheme.backgroundColor,
         child: ListenableBuilder(
-          listenable: _store,
+          listenable: Listenable.merge([_store, SettingsService.instance]),
           builder: (context, _) {
             final categories = _store.categories;
+            final chips = [
+              for (final c in categories) _categoryChip(label: c, value: c),
+            ];
+            if (SettingsService.instance.categoryBarRows == 2) {
+              // 双排：换行展示，全部分类可见。
+              return SingleChildScrollView(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [...chips, _manageButton()],
+                ),
+              );
+            }
+            // 单排：横向滚动 + 长按拖拽排序。
             return Row(
               children: [
                 const SizedBox(width: 12),
-                _categoryChip(label: '全部', value: null),
-                _categoryChip(label: '未分类', value: ''),
                 Expanded(
-                  child: categories.isEmpty
-                      ? const SizedBox.shrink()
-                      : ReorderableListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          buildDefaultDragHandles: true,
-                          itemCount: categories.length,
-                          onReorderItem: (oldIndex, newIndex) =>
-                              _store.reorderCategory(oldIndex, newIndex),
-                          // 不加 elevation：拖拽时分类标签下方不出现阴影。
-                          proxyDecorator: (child, index, animation) => child,
-                          itemBuilder: (context, index) {
-                            final category = categories[index];
-                            return Padding(
-                              key: ValueKey(category),
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 4),
-                              child: FilterChip(
-                                label: Text(category),
-                                selected: _activeCategory == category,
-                                showCheckmark: false,
-                                onSelected: (selected) {
-                                  if (selected) {
-                                    setState(
-                                        () => _activeCategory = category);
-                                  }
-                                },
-                                onDeleted: () =>
-                                    _confirmDeleteCategory(category),
-                                deleteIconColor:
-                                    Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
-                            );
-                          },
-                        ),
+                  child: ReorderableListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    buildDefaultDragHandles: true,
+                    itemCount: categories.length,
+                    // 拖到边缘的自动滚动速度调慢（默认 50 → 20）。
+                    autoScrollerVelocityScalar: 20,
+                    onReorderItem: (oldIndex, newIndex) =>
+                        _store.reorderCategory(oldIndex, newIndex),
+                    // 不加 elevation：拖拽时分类标签下方不出现阴影。
+                    proxyDecorator: (child, index, animation) => child,
+                    itemBuilder: (context, index) => Padding(
+                      key: ValueKey(categories[index]),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: chips[index],
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 12),
+                _manageButton(),
+                const SizedBox(width: 8),
               ],
             );
           },
@@ -502,17 +495,34 @@ class _StickersPageState extends State<StickersPage> {
     );
   }
 
-  Widget _categoryChip({required String label, required String? value}) {
-    final selected = _activeCategory == value;
+  double _barHeight() =>
+      SettingsService.instance.categoryBarRows == 2 ? 104 : 56;
+
+  /// 分类管理入口：进入管理页选择分类，右上角删除 / 重命名。
+  Widget _manageButton() {
+    final colors = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: selected,
-        onSelected: (selected) {
-          if (selected) setState(() => _activeCategory = value);
-        },
+      child: IconButton(
+        tooltip: '管理分类',
+        icon: Icon(Icons.tune_rounded, color: colors.onSurfaceVariant),
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+              builder: (_) => CategoryManagePage(store: _store)),
+        ),
       ),
+    );
+  }
+
+  Widget _categoryChip({required String label, required String? value}) {
+    final selected = _activeCategory == value;
+    return FilterChip(
+      label: Text(label),
+      selected: selected,
+      showCheckmark: false,
+      onSelected: (selected) {
+        if (selected) setState(() => _activeCategory = value);
+      },
     );
   }
 
