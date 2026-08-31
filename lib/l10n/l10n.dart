@@ -18,11 +18,13 @@ enum AppLanguage {
   final String id;
 
   static AppLanguage fromId(String? id) => switch (id) {
+        'system' => AppLanguage.system,
         'zh-TW' => AppLanguage.zhTW,
         'en' => AppLanguage.en,
         'ja' => AppLanguage.ja,
         'ko' => AppLanguage.ko,
-        _ => AppLanguage.zhCN,
+        // 从未设置或未知值：默认跟随系统。
+        _ => AppLanguage.system,
       };
 }
 

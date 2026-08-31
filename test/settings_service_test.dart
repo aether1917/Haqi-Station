@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:haqi_station/l10n/l10n.dart';
 import 'package:haqi_station/services/settings_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -70,6 +71,31 @@ void main() {
       final again = SettingsService.instance;
       await again.load();
       expect(again.previewProgram, isFalse);
+    });
+  });
+
+  group('SettingsService 语言', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    test('默认跟随系统；切换语言持久化，重载后还原', () async {
+      final settings = SettingsService.instance;
+      await settings.load();
+      expect(settings.language, AppLanguage.system);
+
+      await settings.setLanguage(AppLanguage.ja);
+      expect(settings.language, AppLanguage.ja);
+
+      final reloaded = SettingsService.instance;
+      await reloaded.load();
+      expect(reloaded.language, AppLanguage.ja);
+
+      // 回归：跟随系统重启后仍是跟随系统，而不是退回简体中文。
+      await reloaded.setLanguage(AppLanguage.system);
+      final again = SettingsService.instance;
+      await again.load();
+      expect(again.language, AppLanguage.system);
     });
   });
 }
