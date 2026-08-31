@@ -20,39 +20,6 @@ class SettingsPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
-          _sectionLabel(context, '分类栏'),
-          Container(
-            decoration: BoxDecoration(
-              color: colors.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: ListenableBuilder(
-              listenable: settings,
-              builder: (context, _) => RadioGroup<int>(
-                groupValue: settings.categoryBarRows,
-                onChanged: (rows) {
-                  if (rows != null) settings.setCategoryBarRows(rows);
-                },
-                child: const Column(
-                  children: [
-                    RadioListTile<int>(
-                      value: 1,
-                      title: Text('单排显示'),
-                      subtitle: Text('横向滚动，支持长按拖拽排序'),
-                      secondary: Icon(Icons.view_stream_outlined),
-                    ),
-                    RadioListTile<int>(
-                      value: 2,
-                      title: Text('双排显示'),
-                      subtitle: Text('分类全部展示，不适合排序'),
-                      secondary: Icon(Icons.view_agenda_outlined),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
           _sectionLabel(context, '外观'),
           Container(
             decoration: BoxDecoration(

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
 import '../services/native_share.dart';
-import '../services/settings_service.dart';
 import '../services/sticker_store.dart';
 import '../widgets/sticker_tile.dart';
 import 'category_manage_page.dart';
@@ -56,7 +55,8 @@ class _StickersPageState extends State<StickersPage> {
   /// 按分类栏过滤后的可见表情包。
   List<Sticker> get _visibleItems {
     final active = _activeCategory;
-    if (active == null) return _store.items;
+    // 「全部」与未选择时都显示所有表情包。
+    if (active == null || active == kAllCategory) return _store.items;
     if (active == kUncategorizedCategory) {
       return [for (final s in _store.items) if (s.uncategorized) s];
     }
@@ -435,35 +435,17 @@ class _StickersPageState extends State<StickersPage> {
   }
 
   /// 分类栏：默认「全部 / 未分类」与自定义分类都在列表里，可长按拖拽排序
-  /// （单排横向滚动模式）；布局支持单排 / 双排（设置切换）；末尾有管理按钮。
+  /// （单排横向滚动），末尾有管理按钮。
   PreferredSizeWidget _buildCategoryBar() {
-    final double barHeight = _barHeight();
     return PreferredSize(
-      preferredSize: Size.fromHeight(barHeight),
+      preferredSize: const Size.fromHeight(56),
       child: Container(
-        height: barHeight,
+        height: 56,
         color: Theme.of(context).appBarTheme.backgroundColor,
         child: ListenableBuilder(
-          listenable: Listenable.merge([_store, SettingsService.instance]),
+          listenable: _store,
           builder: (context, _) {
             final categories = _store.categories;
-            final chips = [
-              for (final c in categories) _categoryChip(label: c, value: c),
-            ];
-            if (SettingsService.instance.categoryBarRows == 2) {
-              // 双排：换行展示，全部分类可见。
-              return SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [...chips, _manageButton()],
-                ),
-              );
-            }
-            // 单排：横向滚动 + 长按拖拽排序。
             return Row(
               children: [
                 const SizedBox(width: 12),
@@ -481,7 +463,9 @@ class _StickersPageState extends State<StickersPage> {
                     itemBuilder: (context, index) => Padding(
                       key: ValueKey(categories[index]),
                       padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: chips[index],
+                      child: _categoryChip(
+                          label: categories[index],
+                          value: categories[index]),
                     ),
                   ),
                 ),
@@ -494,9 +478,6 @@ class _StickersPageState extends State<StickersPage> {
       ),
     );
   }
-
-  double _barHeight() =>
-      SettingsService.instance.categoryBarRows == 2 ? 104 : 56;
 
   /// 分类管理入口：进入管理页选择分类，右上角删除 / 重命名。
   Widget _manageButton() {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/settings_service.dart';
 import 'about_page.dart';
+import 'donation_page.dart';
 import 'settings_page.dart';
 
 /// 「更多」一级界面：设置与关于入口。
@@ -47,6 +48,26 @@ class MorePage extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          // 捐赠入口：独立卡片，位于设置/关于列表下方。
+          Container(
+            decoration: BoxDecoration(
+              color: colors.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              leading: Icon(Icons.volunteer_activism_outlined,
+                  color: colors.primary),
+              title: const Text('捐赠'),
+              subtitle: const Text('请我喝杯奶茶吧', style: TextStyle(fontSize: 12)),
+              trailing: Icon(Icons.chevron_right_rounded,
+                  color: colors.onSurfaceVariant),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const DonationPage()),
+              ),
             ),
           ),
         ],
