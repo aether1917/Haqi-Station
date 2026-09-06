@@ -2,11 +2,12 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
 import '../services/native_share.dart';
 import '../services/sticker_store.dart';
 
-/// 表情包二级页面：大图预览 + 分享按钮。
-class StickerDetailPage extends StatelessWidget {
+/// 表情包二级页面：大图预览 + 重命名 + 分享按钮。
+class StickerDetailPage extends StatefulWidget {
   const StickerDetailPage({
     super.key,
     required this.store,
@@ -16,6 +17,14 @@ class StickerDetailPage extends StatelessWidget {
   final StickerStore store;
   final Sticker sticker;
 
+  @override
+  State<StickerDetailPage> createState() => _StickerDetailPageState();
+}
+
+class _StickerDetailPageState extends State<StickerDetailPage> {
+  Sticker get sticker => widget.sticker;
+  StickerStore get store => widget.store;
+
   String get _dateLabel {
     final d = DateTime.fromMillisecondsSinceEpoch(sticker.addedAt);
     String two(int n) => n.toString().padLeft(2, '0');
@@ -23,12 +32,51 @@ class StickerDetailPage extends StatelessWidget {
   }
 
   Future<void> _share(BuildContext context) async {
-    final ok = await NativeShare.shareFiles([File(store.pathOf(sticker))]);
+    final ok = await NativeShare.shareFiles(
+      [File(store.pathOf(sticker))],
+      names: [sticker.name],
+    );
     if (!context.mounted) return;
     if (!ok) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('文件不存在，无法分享')));
+          .showSnackBar(SnackBar(content: Text(t('noFileShare'))));
     }
+  }
+
+  /// 重命名表情包（展示名；分享时文件名同步使用）。
+  Future<void> _renameSticker() async {
+    final controller = TextEditingController(text: sticker.name);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t('renameSticker')),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 30,
+          decoration: InputDecoration(labelText: t('stickerName')),
+          onSubmitted: (value) => Navigator.pop(context, value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(t('cancel')),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: Text(t('confirm')),
+          ),
+        ],
+      ),
+    );
+    if (name == null) return;
+    final ok = await store.renameSticker(sticker, name);
+    if (!mounted) return;
+    if (ok) setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(ok ? t('stickerRenamed') : t('invalidName')),
+    ));
   }
 
   @override
@@ -38,11 +86,24 @@ class StickerDetailPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          sticker.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.bold),
+        title: GestureDetector(
+          onTap: _renameSticker,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  sticker.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.edit_rounded,
+                  size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ],
+          ),
         ),
       ),
       body: Column(

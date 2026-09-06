@@ -5,6 +5,7 @@ import '../l10n/l10n.dart';
 import '../services/settings_service.dart';
 import 'about_page.dart';
 import 'donation_page.dart';
+import 'backup_page.dart';
 import 'settings_page.dart';
 
 /// 「更多」一级界面：设置与关于入口。
@@ -30,6 +31,16 @@ class MorePage extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
+                ListTile(
+                  leading: const Icon(Icons.backup_outlined),
+                  title: Text(t('backup')),
+                  subtitle: Text(t('backupSubtitle'), style: const TextStyle(fontSize: 12)),
+                  trailing: Icon(Icons.chevron_right_rounded, color: colors.onSurfaceVariant),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(builder: (_) => const BackupPage()),
+                  ),
+                ),
+                Divider(height: 1, indent: 56, color: colors.outlineVariant),
                 ListTile(
                   leading: const Icon(Icons.settings_outlined),
                   title: Text(t('settings')),

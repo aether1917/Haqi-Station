@@ -131,34 +131,48 @@ class _CategoryManagePageState extends State<CategoryManagePage> {
       ),
       body: ListenableBuilder(
         listenable: widget.store,
-        builder: (context, _) => ListView(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+        builder: (context, _) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Text(t('selectCategoryHint'),
+              child: Text('${t('selectCategoryHint')}；长按拖拽可调整顺序',
                   style: Theme.of(context)
                       .textTheme
                       .bodySmall
                       ?.copyWith(color: colors.onSurfaceVariant)),
             ),
-            for (final c in widget.store.categories)
-              ListTile(
-                title: Text(c == kAllCategory
-                    ? t('all')
-                    : c == kUncategorizedCategory
-                        ? t('uncategorized')
-                        : c),
-                subtitle: c == kAllCategory || c == kUncategorizedCategory
-                    ? Text(t('builtinNoDelete'), style: const TextStyle(fontSize: 12))
-                    : null,
-                trailing: _selected == c
-                    ? Icon(Icons.check_circle_rounded, color: colors.primary)
-                    : Icon(Icons.circle_outlined,
-                        color: colors.outlineVariant),
-                selected: _selected == c,
-                onTap: () => setState(() => _selected = c),
+            Expanded(
+              child: ReorderableListView(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                buildDefaultDragHandles: true,
+                onReorderItem: (oldIndex, newIndex) =>
+                    widget.store.reorderCategory(oldIndex, newIndex),
+                proxyDecorator: (child, index, animation) => child,
+                children: [
+                  for (final c in widget.store.categories)
+                    ListTile(
+                      key: ValueKey(c),
+                      title: Text(c == kAllCategory
+                          ? t('all')
+                          : c == kUncategorizedCategory
+                              ? t('uncategorized')
+                              : c),
+                      subtitle: c == kAllCategory || c == kUncategorizedCategory
+                          ? Text(t('builtinNoDelete'),
+                              style: const TextStyle(fontSize: 12))
+                          : null,
+                      trailing: _selected == c
+                          ? Icon(Icons.check_circle_rounded,
+                              color: colors.primary)
+                          : Icon(Icons.circle_outlined,
+                              color: colors.outlineVariant),
+                      selected: _selected == c,
+                      onTap: () => setState(() => _selected = c),
+                    ),
+                ],
               ),
+            ),
           ],
         ),
       ),

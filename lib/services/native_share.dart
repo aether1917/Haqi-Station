@@ -11,13 +11,19 @@ class NativeShare {
   static const _channel = MethodChannel('com.haqi.station/share');
 
   /// 分享本地文件，返回是否成功调起分享面板。
-  static Future<bool> shareFiles(List<File> files) async {
+  /// [names] 与 files 一一对应，作为分享时的展示文件名。
+  static Future<bool> shareFiles(List<File> files, {List<String>? names}) async {
     final existing = [for (final f in files) if (f.existsSync()) f];
     if (existing.isEmpty) return false;
     try {
       await _channel.invokeMethod<bool>('shareFiles', {
         'paths': [for (final f in existing) f.path],
         'mimeTypes': [for (final f in existing) _mimeTypeFor(f.path)],
+        if (names != null)
+          'names': [
+            for (var i = 0; i < names.length && i < existing.length; i++)
+              names[i],
+          ],
       });
       return true;
     } on PlatformException {

@@ -4,6 +4,7 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -45,8 +46,8 @@ class Sticker {
   /// 唯一 ID，同时是存储文件名的主干。
   final String id;
 
-  /// 展示名称（不含扩展名，通常来自原文件名）。
-  final String name;
+  /// 展示名称（不含扩展名，通常来自原文件名；可重命名）。
+  String name;
 
   /// 小写扩展名，如 `png` / `gif`。
   final String ext;
@@ -83,6 +84,12 @@ class StickerStore extends ChangeNotifier {
   static const _metaKey = 'haqi.stickers.v1';
   static const _categoriesKey = 'haqi.categories.v1';
   static const _randomChars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+
+  /// 应用级单例：表情包页 / 搜索页 / 管理页共享同一份数据。
+  /// （测试可另建独立实例。）
+  static final StickerStore instance = StickerStore();
+
+  StickerStore();
 
   final List<Sticker> _items = [];
   final List<String> _categories = [];
@@ -293,6 +300,100 @@ class StickerStore extends ChangeNotifier {
     }
     notifyListeners();
     await _persist();
+  }
+
+  /// 重命名表情包（仅展示名；非法字符或空名返回 false）。
+  Future<bool> renameSticker(Sticker sticker, String newName) async {
+    final trimmed = newName.trim();
+    if (trimmed.isEmpty || trimmed == sticker.name) return false;
+    if (trimmed.contains(RegExp(r'[\\/:*?"<>|]'))) return false;
+    final index = _items.indexWhere((s) => s.id == sticker.id);
+    if (index == -1) return false;
+    _items[index].name = trimmed;
+    notifyListeners();
+    await _persist();
+    return true;
+  }
+
+  /// 导出备份 zip（表情包文件 + meta.json），返回是否成功。
+  Future<bool> exportBackup(File targetZip) async {
+    try {
+      final archive = Archive();
+      archive.addFile(ArchiveFile.bytes(
+        'meta.json',
+        utf8.encode(jsonEncode({
+          'app': 'haqi-station',
+          'backupVersion': 1,
+          'stickers': [for (final s in _items) s.toJson()],
+          'categories': _categories,
+        })),
+      ));
+      for (final s in _items) {
+        final f = File(pathOf(s));
+        if (!f.existsSync()) continue;
+        archive.addFile(ArchiveFile.bytes(
+          'files/${s.fileName}',
+          f.readAsBytesSync(),
+        ));
+      }
+      final encoded = ZipEncoder().encode(archive);
+      targetZip
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(encoded);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 从备份 zip 导入：合并表情包与分类（已有同 id 的跳过），
+  /// 返回导入的表情包数量；zip 无效返回 -1。
+  Future<int> importBackup(File zipFile) async {
+    Archive archive;
+    try {
+      final bytes = zipFile.readAsBytesSync();
+      archive = ZipDecoder().decodeBytes(bytes);
+    } catch (_) {
+      return -1;
+    }
+
+    final metaEntry = archive.findFile('meta.json');
+    if (metaEntry == null) return -1;
+    Map<String, dynamic> meta;
+    try {
+      meta = jsonDecode(utf8.decode(metaEntry.content as List<int>))
+          as Map<String, dynamic>;
+    } catch (_) {
+      return -1;
+    }
+
+    var imported = 0;
+    for (final entry in meta['stickers'] as List<dynamic>? ?? const []) {
+      if (entry is! Map<String, dynamic>) continue;
+      final sticker = Sticker.fromJson(
+          Map<String, dynamic>.from(entry as Map<dynamic, dynamic>));
+      if (_items.any((s) => s.id == sticker.id)) continue;
+      final dataEntry = archive.findFile('files/${sticker.fileName}');
+      if (dataEntry == null) continue;
+      final target = File(pathOf(sticker));
+      target.writeAsBytesSync(List<int>.from(dataEntry.content as List<int>));
+      _items.add(sticker);
+      imported++;
+    }
+    // 合并备份里的分类（内置分类天然保留；无引用的会在导入后自然消失?——
+    // 这里保留有引用的即可）。
+    for (final c in meta['categories'] as List<dynamic>? ?? const []) {
+      if (c is String &&
+          c != kAllCategory &&
+          c != kUncategorizedCategory &&
+          !_categories.contains(c) &&
+          _items.any((s) => s.category == c)) {
+        _categories.add(c);
+      }
+    }
+    await _persist();
+    notifyListeners();
+    return imported;
   }
 
   /// 拖拽排序：语义与 reorderable_grid_view 一致 ——

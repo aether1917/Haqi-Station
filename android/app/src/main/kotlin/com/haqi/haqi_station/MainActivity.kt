@@ -15,19 +15,34 @@ import java.io.File
 class MainActivity : FlutterActivity() {
     /// 系统文件选择器请求码与挂起的 Dart 回调。
     private val filePickerRequestCode = 42001
+    private val exportRequestCode = 42002
     private var pendingFilePickerResult: MethodChannel.Result? = null
+    private var pendingFilePickerZipOnly = false
+    private var pendingExportResult: MethodChannel.Result? = null
+    private var pendingExportSourcePath: String? = null
     /// 分享文件给微信/QQ 等：Android 11+ 上仅靠 FLAG_GRANT 走 chooser 会丢
     /// 读权限（微信点开无反应、QQ 能选聊天但发不出文件），必须先给 Intent
     /// 设好 ClipData 再包 chooser，系统才会把权限可靠地传递给目标应用。
-    private fun shareFiles(paths: List<String>, mimeTypes: List<String>) {
+    private fun shareFiles(
+        paths: List<String>,
+        mimeTypes: List<String>,
+        names: List<String>?,
+    ) {
         val cacheDir = File(cacheDir, "shared_stickers")
         cacheDir.deleteRecursively()
         cacheDir.mkdirs()
 
         val uris = ArrayList<Uri>(paths.size)
-        for (path in paths) {
+        for ((i, path) in paths.withIndex()) {
             val file = File(path)
-            val copy = File(cacheDir, file.name)
+            // 分享展示名：优先用传入的表情包名（微信/QQ 显示文件名）。
+            val displayName = names?.getOrNull(i)
+            val copy = if (displayName.isNullOrBlank()) {
+                File(cacheDir, file.name)
+            } else {
+                File(cacheDir, sanitizeFileName(displayName) +
+                        "." + file.extension.ifEmpty { "bin" })
+            }
             file.copyTo(copy, true)
             uris.add(FileProvider.getUriForFile(this, "$packageName.fileprovider", copy))
         }
@@ -68,6 +83,12 @@ class MainActivity : FlutterActivity() {
             sameBase -> first.substringBefore('/') + "/*"
             else -> "*/*"
         }
+    }
+
+    /// 文件名清洗：替换 Windows/Android 非法字符与控制符。
+    private fun sanitizeFileName(name: String): String {
+        val cleaned = name.replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), "_").trim()
+        return cleaned.ifEmpty { "sticker" }
     }
 
     /// 内建内容查看器：扫描媒体库（图片 + 视频），按修改时间倒序。
@@ -165,6 +186,26 @@ class MainActivity : FlutterActivity() {
         activity.startActivityForResult(intent, filePickerRequestCode)
     }
 
+    /// 调起系统「另存为」（CREATE_DOCUMENT），让用户选择备份 zip 的保存位置。
+    private fun launchExportDocument(
+        defaultName: String,
+        sourcePath: String,
+        result: MethodChannel.Result,
+    ) {
+        val activity = activity ?: run {
+            result.error("NO_ACTIVITY", "应用不在前台", null)
+            return
+        }
+        pendingExportResult = result
+        pendingExportSourcePath = sourcePath
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/zip"
+            putExtra(Intent.EXTRA_TITLE, defaultName)
+        }
+        activity.startActivityForResult(intent, exportRequestCode)
+    }
+
     /// 把 SAF 的 content:// 复制成可读文件（文件名取 DISPLAY_NAME，缺省按时间戳）。
     private fun copyUriToCache(uri: Uri, fallbackExt: String): String {
         val folder = File(cacheDir, "shared_import")
@@ -184,7 +225,9 @@ class MainActivity : FlutterActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (requestCode == filePickerRequestCode) {
             val result = pendingFilePickerResult
+            val zipOnly = pendingFilePickerZipOnly
             pendingFilePickerResult = null
+            pendingFilePickerZipOnly = false
             if (result != null) {
                 if (resultCode == RESULT_OK && data != null) {
                     val paths = ArrayList<String>()
@@ -196,9 +239,33 @@ class MainActivity : FlutterActivity() {
                     } else if (data.data != null) {
                         paths.add(copyUriToCache(data.data!!, "jpg"))
                     }
-                    result.success(paths)
+                    result.success(if (zipOnly) paths.take(1) else paths)
                 } else {
                     result.success(emptyList<String>())
+                }
+            }
+            return
+        }
+        if (requestCode == exportRequestCode) {
+            val result = pendingExportResult
+            val sourcePath = pendingExportSourcePath
+            pendingExportResult = null
+            pendingExportSourcePath = null
+            if (result != null) {
+                val uri = data?.data
+                if (resultCode == RESULT_OK && uri != null && sourcePath != null) {
+                    try {
+                        contentResolver.openOutputStream(uri)?.use { output ->
+                            File(sourcePath).inputStream().use { input ->
+                                input.copyTo(output)
+                            }
+                        }
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("EXPORT_FAILED", e.message, null)
+                    }
+                } else {
+                    result.success(false)
                 }
             }
             return
@@ -214,8 +281,9 @@ class MainActivity : FlutterActivity() {
                     "shareFiles" -> {
                         val paths = call.argument<List<String>>("paths") ?: emptyList()
                         val mimeTypes = call.argument<List<String>>("mimeTypes") ?: emptyList()
+                        val names = call.argument<List<String>>("names")
                         try {
-                            shareFiles(paths, mimeTypes)
+                            shareFiles(paths, mimeTypes, names)
                             result.success(true)
                         } catch (e: Exception) {
                             result.error("SHARE_FAILED", e.message, null)
@@ -243,6 +311,61 @@ class MainActivity : FlutterActivity() {
                             launchSystemFilePicker(result)
                         } catch (e: Exception) {
                             result.error("PICK_FAILED", e.message, null)
+                        }
+                    }
+                    "pickBackupZip" -> {
+                        val activity = activity
+                        if (activity == null) {
+                            result.error("NO_ACTIVITY", "应用不在前台", null)
+                        } else {
+                            pendingFilePickerResult = result
+                            pendingFilePickerZipOnly = true
+                            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                                addCategory(Intent.CATEGORY_OPENABLE)
+                                type = "application/zip"
+                            }
+                            activity.startActivityForResult(intent, filePickerRequestCode)
+                        }
+                    }
+                    "pickExportLocation" -> {
+                        val defaultName =
+                            call.argument<String>("defaultName") ?: "backup.zip"
+                        val sourcePath = call.argument<String>("sourcePath") ?: ""
+                        try {
+                            launchExportDocument(defaultName, sourcePath, result)
+                        } catch (e: Exception) {
+                            result.error("PICK_FAILED", e.message, null)
+                        }
+                    }
+                    "writeFileToUri" -> {
+                        val sourcePath = call.argument<String>("sourcePath")
+                        val targetUri = call.argument<String>("targetUri")
+                        try {
+                            if (sourcePath == null || targetUri == null) {
+                                result.error("EXPORT_FAILED", "missing args", null)
+                            } else {
+                                contentResolver.openOutputStream(Uri.parse(targetUri))
+                                    ?.use { output ->
+                                        File(sourcePath).inputStream().use { input ->
+                                            input.copyTo(output)
+                                        }
+                                    }
+                                result.success(true)
+                            }
+                        } catch (e: Exception) {
+                            result.error("EXPORT_FAILED", e.message, null)
+                        }
+                    }
+                    "importUriToCache" -> {
+                        val uriString = call.argument<String>("uri")
+                        try {
+                            if (uriString == null) {
+                                result.error("IMPORT_FAILED", "missing uri", null)
+                            } else {
+                                result.success(copyUriToCache(Uri.parse(uriString), "zip"))
+                            }
+                        } catch (e: Exception) {
+                            result.error("IMPORT_FAILED", e.message, null)
                         }
                     }
                     else -> result.notImplemented()

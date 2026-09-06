@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../l10n/l10n.dart';
 import 'more_page.dart';
+import 'search_page.dart';
 import 'stickers_page.dart';
 
 /// 一级界面：底部导航切换「表情包」与「更多」。
@@ -20,7 +21,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       body: IndexedStack(
         index: _index,
-        children: const [StickersPage(), MorePage()],
+        children: const [StickersPage(), SearchPage(), MorePage()],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,

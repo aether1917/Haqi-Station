@@ -22,7 +22,7 @@ class StickersPage extends StatefulWidget {
 }
 
 class _StickersPageState extends State<StickersPage> {
-  final StickerStore _store = StickerStore();
+  final StickerStore _store = StickerStore.instance;
   final Set<String> _selectedIds = {};
   bool _selectMode = false;
   bool _importing = false;
@@ -41,7 +41,6 @@ class _StickersPageState extends State<StickersPage> {
   @override
   void dispose() {
     _store.removeListener(_ensureValidFilter);
-    _store.dispose();
     super.dispose();
   }
 

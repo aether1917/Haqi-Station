@@ -76,4 +76,38 @@ class MediaStoreService {
       return const [];
     }
   }
+
+  /// 调起系统「另存为」让用户选择导出位置，把 [sourcePath] 写入所选目标。
+  /// 用户取消返回 false。
+  static Future<bool> pickExportLocation({
+    required String defaultName,
+    required String sourcePath,
+  }) async {
+    try {
+      final target = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+          'pickExportLocation', {'defaultName': defaultName});
+      final uri = target?['uri'] as String?;
+      if (uri == null || uri.isEmpty) return false;
+      final written = await _channel.invokeMethod<bool>('writeFileToUri', {
+        'sourcePath': sourcePath,
+        'targetUri': uri,
+      });
+      return written == true;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  /// 调起系统文件选择器选一个备份 zip，复制到应用缓存后返回其路径；
+  /// 取消或失败返回 null。
+  static Future<String?> importUriToCache() async {
+    try {
+      final result =
+          await _channel.invokeMethod<List<dynamic>>('pickBackupZip');
+      final paths = [for (final p in result ?? const <dynamic>[]) p as String];
+      return paths.isEmpty ? null : paths.first;
+    } on PlatformException {
+      return null;
+    }
+  }
 }
