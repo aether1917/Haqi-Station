@@ -189,6 +189,8 @@ const Map<AppLanguage, Map<String, String>> _strings = {
     'webdavRestore': '从 WebDAV 恢复',
     'webdavEmpty': 'WebDAV 上还没有备份，先上传一个',
     'webdavDownloadFail': '下载备份失败',
+'updateDownloadFail': '更新包下载失败，请稍后重试',
+'updateWindowsHint': '更新包已下载并解压，文件夹已打开：关闭本应用后，将解压出的全部文件覆盖到原安装目录即可完成更新',
   },
   AppLanguage.zhTW: {
     'appName': '哈氣站',
@@ -311,6 +313,8 @@ const Map<AppLanguage, Map<String, String>> _strings = {
     'webdavRestore': '從 WebDAV 復原',
     'webdavEmpty': 'WebDAV 上還沒有備份，先上傳一個',
     'webdavDownloadFail': '下載備份失敗',
+'updateDownloadFail': '更新包下載失敗，請稍後重試',
+'updateWindowsHint': '更新包已下載並解壓，資料夾已開啟：關閉本應用後，將解壓出的全部檔案覆蓋到原安裝目錄即可完成更新',
   },
   AppLanguage.en: {
     'appName': 'Haqi Station',
@@ -433,6 +437,8 @@ const Map<AppLanguage, Map<String, String>> _strings = {
     'webdavRestore': 'Restore from WebDAV',
     'webdavEmpty': 'No backups on WebDAV yet. Upload one first',
     'webdavDownloadFail': 'Failed to download backup',
+'updateDownloadFail': 'Failed to download the update. Try again later',
+'updateWindowsHint': 'Update downloaded and extracted, folder opened: close this app, then copy the extracted files over the install folder to finish updating',
   },
   AppLanguage.ja: {
     'appName': 'ハキステーション',
@@ -555,6 +561,8 @@ const Map<AppLanguage, Map<String, String>> _strings = {
     'webdavRestore': 'WebDAV から復元',
     'webdavEmpty': 'WebDAV にバックアップがありません。先にアップロードしてください',
     'webdavDownloadFail': 'バックアップのダウンロードに失敗しました',
+'updateDownloadFail': 'アップデートのダウンロードに失敗しました。後でもう一度お試しください',
+'updateWindowsHint': 'アップデートをダウンロードして展開しました。フォルダを開いています：このアプリを終了し、展開したファイルをインストールフォルダに上書きしてください',
   },
   AppLanguage.ko: {
     'appName': '하치 스테이션',
@@ -677,6 +685,8 @@ const Map<AppLanguage, Map<String, String>> _strings = {
     'webdavRestore': 'WebDAV에서 복원',
     'webdavEmpty': 'WebDAV에 백업이 없습니다. 먼저 업로드하세요',
     'webdavDownloadFail': '백업 다운로드 실패',
+'updateDownloadFail': '업데이트 다운로드 실패. 나중에 다시 시도하세요',
+'updateWindowsHint': '업데이트를 다운로드하고 압축을 풀었습니다. 폴더가 열렸습니다: 앱을 종료한 뒤 압축 해제된 파일을 설치 폴더에 덮어쓰세요',
   },
 };
 

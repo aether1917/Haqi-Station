@@ -7,6 +7,8 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive.dart';
+
 import 'package:url_launcher/url_launcher.dart';
 
 /// GitHub 仓库主页（关于页与更新检查共用）。
@@ -18,6 +20,7 @@ class AppUpdate {
     required this.version,
     required this.notes,
     required this.apkUrl,
+    this.windowsUrl,
     this.prerelease = false,
   });
 
@@ -30,8 +33,15 @@ class AppUpdate {
   /// APK 下载直链。
   final String apkUrl;
 
+  /// Windows zip 下载直链（无则为 null）。
+  final String? windowsUrl;
+
   /// 是否为预览版本（beta / alpha）。
   final bool prerelease;
+
+  /// 当前平台应下载的资产地址。
+  String get downloadUrl =>
+      Platform.isWindows ? (windowsUrl ?? apkUrl) : apkUrl;
 }
 
 class UpdateService {
@@ -102,17 +112,28 @@ class UpdateService {
     final tag = (json['tag_name'] as String? ?? '')
         .trim()
         .replaceFirst(RegExp(r'^v'), '');
-    final apkUrl = [
+    final assets = [
       for (final asset in json['assets'] as List<dynamic>? ?? const [])
-        if (asset is Map<String, dynamic> &&
-            (asset['name'] as String? ?? '').endsWith('.apk'))
-          asset['browser_download_url'] as String,
+        if (asset is Map<String, dynamic>)
+          (
+            name: asset['name'] as String? ?? '',
+            url: asset['browser_download_url'] as String? ?? '',
+          ),
+    ];
+    final apkUrl = [
+      for (final a in assets)
+        if (a.name.endsWith('.apk')) a.url,
+    ].firstOrNull;
+    final windowsUrl = [
+      for (final a in assets)
+        if (a.name.endsWith('.zip') && a.name.contains('windows')) a.url,
     ].firstOrNull;
     if (tag.isEmpty || apkUrl == null || apkUrl.isEmpty) return null;
     return AppUpdate(
       version: tag,
       notes: json['body'] as String? ?? '',
       apkUrl: apkUrl,
+      windowsUrl: windowsUrl,
       prerelease: json['prerelease'] == true,
     );
   }
@@ -178,6 +199,45 @@ class UpdateService {
       return await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (_) {
       return false;
+    }
+  }
+
+  /// Windows 更新：下载 windows zip 到临时目录并解压，
+  /// 完成后打开解压目录（用户关闭应用后覆盖旧文件即可）。
+  static Future<String?> downloadWindowsUpdate(String zipUrl) async {
+    try {
+      final client = HttpClient();
+      final tempZip = File(
+          '${Directory.systemTemp.path}/haqi-station-update.zip');
+      final request = await client.getUrl(Uri.parse(zipUrl));
+      request.headers.set(HttpHeaders.userAgentHeader, 'haqi-station-app');
+      final response = await request.close().timeout(_timeout);
+      if (response.statusCode != 200) {
+        client.close();
+        return null;
+      }
+      final bytes = await response.fold<List<int>>(
+          <int>[], (acc, chunk) => acc..addAll(chunk));
+      tempZip.writeAsBytesSync(bytes, flush: true);
+      client.close();
+
+      final extractDir =
+          Directory('${Directory.systemTemp.path}/haqi-station-update');
+      if (extractDir.existsSync()) extractDir.deleteSync(recursive: true);
+      extractDir.createSync(recursive: true);
+      final archive = ZipDecoder().decodeBytes(bytes);
+      for (final entry in archive) {
+        if (entry.isFile) {
+          final target = File('${extractDir.path}/${entry.name}');
+          target
+            ..createSync(recursive: true)
+            ..writeAsBytesSync(List<int>.from(entry.content as List<int>));
+        }
+      }
+      await Process.run('explorer.exe', [extractDir.path]);
+      return extractDir.path;
+    } catch (_) {
+      return null;
     }
   }
 }
