@@ -5,7 +5,7 @@ import 'more_page.dart';
 import 'search_page.dart';
 import 'stickers_page.dart';
 
-/// 一级界面：底部导航切换「表情包」与「更多」。
+/// 一级界面：底部导航切换「表情包 / 搜索 / 更多」。
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -31,6 +31,11 @@ class _HomePageState extends State<HomePage> {
             icon: Icon(Icons.grid_view_outlined),
             selectedIcon: Icon(Icons.grid_view_rounded),
             label: t('tabStickers'),
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.search_outlined),
+            selectedIcon: Icon(Icons.search_rounded),
+            label: t('search'),
           ),
           NavigationDestination(
             icon: Icon(Icons.more_horiz_rounded),

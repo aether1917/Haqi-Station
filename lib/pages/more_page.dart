@@ -4,8 +4,8 @@ import '../l10n/l10n.dart';
 
 import '../services/settings_service.dart';
 import 'about_page.dart';
-import 'donation_page.dart';
 import 'backup_page.dart';
+import 'donation_page.dart';
 import 'settings_page.dart';
 
 /// 「更多」一级界面：设置与关于入口。
