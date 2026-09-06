@@ -47,7 +47,7 @@ class MediaStoreService {
             path: row['path'] as String? ?? '',
           ),
       ];
-    } on PlatformException {
+    } catch (_) {
       return const [];
     }
   }
@@ -60,7 +60,7 @@ class MediaStoreService {
       final paths = await _channel
           .invokeMethod<List<dynamic>>('resolveMediaPaths', {'uris': uris});
       return [for (final p in paths ?? const <dynamic>[]) p as String];
-    } on PlatformException {
+    } catch (_) {
       return const [];
     }
   }
@@ -72,7 +72,7 @@ class MediaStoreService {
       final paths =
           await _channel.invokeMethod<List<dynamic>>('pickFilesSystem');
       return [for (final p in paths ?? const <dynamic>[]) p as String];
-    } on PlatformException {
+    } catch (_) {
       return const [];
     }
   }
@@ -93,7 +93,7 @@ class MediaStoreService {
         'targetUri': uri,
       });
       return written == true;
-    } on PlatformException {
+    } catch (_) {
       return false;
     }
   }
@@ -106,7 +106,7 @@ class MediaStoreService {
           await _channel.invokeMethod<List<dynamic>>('pickBackupZip');
       final paths = [for (final p in result ?? const <dynamic>[]) p as String];
       return paths.isEmpty ? null : paths.first;
-    } on PlatformException {
+    } catch (_) {
       return null;
     }
   }

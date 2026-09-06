@@ -1,6 +1,8 @@
 /// 应用设置（主题模式与色彩模式），持久化到 SharedPreferences。
 library;
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -31,6 +33,7 @@ class SettingsService extends ChangeNotifier {
   static const _seedColorKey = 'haqi.seedColor';
   static const _previewProgramKey = 'haqi.previewProgram';
   static const _languageKey = 'haqi.language';
+  static const _webdavKey = 'haqi.webdav';
 
   static SettingsService? _instance;
   static SettingsService get instance => _instance ??= SettingsService._();
@@ -54,6 +57,9 @@ class SettingsService extends ChangeNotifier {
   AppLanguage _language = AppLanguage.system;
   AppLanguage get language => _language;
 
+  WebDavConfig _webdav = const WebDavConfig();
+  WebDavConfig get webdavConfig => _webdav;
+
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     _themeMode = switch (prefs.getString(_themeKey)) {
@@ -66,6 +72,8 @@ class SettingsService extends ChangeNotifier {
     _previewProgram = prefs.getBool(_previewProgramKey) ?? false;
     _language = AppLanguage.fromId(prefs.getString(_languageKey));
     setCurrentLanguage(effectiveLanguage);
+    _webdav = WebDavConfig.fromJson(
+        prefs.getString(_webdavKey) ?? '{}');
   }
 
   /// 实际生效的语言：跟随系统时按系统语言解析。
@@ -116,4 +124,42 @@ class SettingsService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_languageKey, language.id);
   }
+
+  /// 保存 WebDAV 配置（URL / 账号 / 密码）。
+  Future<void> setWebDavConfig(WebDavConfig config) async {
+    _webdav = config;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_webdavKey, jsonEncode(config.toJson()));
+  }
+}
+
+/// WebDAV 连接配置。
+class WebDavConfig {
+  const WebDavConfig({this.url = '', this.username = '', this.password = ''});
+
+  final String url;
+  final String username;
+  final String password;
+
+  bool get configured => url.trim().isNotEmpty;
+
+  factory WebDavConfig.fromJson(String raw) {
+    try {
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      return WebDavConfig(
+        url: json['url'] as String? ?? '',
+        username: json['username'] as String? ?? '',
+        password: json['password'] as String? ?? '',
+      );
+    } catch (_) {
+      return const WebDavConfig();
+    }
+  }
+
+  Map<String, dynamic> toJson() => {
+        'url': url,
+        'username': username,
+        'password': password,
+      };
 }

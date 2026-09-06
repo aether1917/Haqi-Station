@@ -13,6 +13,8 @@ class NativeShare {
   /// 分享本地文件，返回是否成功调起分享面板。
   /// [names] 与 files 一一对应，作为分享时的展示文件名。
   static Future<bool> shareFiles(List<File> files, {List<String>? names}) async {
+    // 原生分享通道仅 Android 实现。
+    if (!Platform.isAndroid) return false;
     final existing = [for (final f in files) if (f.existsSync()) f];
     if (existing.isEmpty) return false;
     try {
@@ -26,7 +28,7 @@ class NativeShare {
           ],
       });
       return true;
-    } on PlatformException {
+    } catch (_) {
       return false;
     }
   }

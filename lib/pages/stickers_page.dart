@@ -1,10 +1,12 @@
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
 import '../l10n/l10n.dart';
 
+import '../services/media_store.dart';
 import '../services/native_share.dart';
 import '../services/sticker_store.dart';
 import '../widgets/sticker_tile.dart';
@@ -84,13 +86,25 @@ class _StickersPageState extends State<StickersPage> {
     });
   }
 
-  /// 导入：直达应用内建内容查看器（相册）；「从文件选择」在查看器内。
+  /// 导入：手机直达应用内建内容查看器（相册）；
+  /// Windows 直接调文件选择器多选图片。
   Future<void> _import() async {
     if (_importing) return;
     setState(() => _importing = true);
     try {
-      final paths = await showMediaPicker(context);
-      if (!mounted || paths == null || paths.isEmpty) return;
+      List<String> paths;
+      if (Platform.isWindows) {
+        final picked = await FilePicker.pickFiles(
+          type: FileType.image,
+          allowMultiple: true,
+        );
+        paths = [for (final f in picked) if (f.path != null) f.path!];
+      } else {
+        final uris = await showMediaPicker(context);
+        if (!mounted || uris == null || uris.isEmpty) return;
+        paths = await MediaStoreService.resolveMediaPaths(uris);
+      }
+      if (!mounted || paths.isEmpty) return;
       final count = await _store.importFiles(paths);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
