@@ -103,8 +103,14 @@ class _StickersPageState extends State<StickersPage> {
         final uris = await showMediaPicker(context);
         if (!mounted || uris == null || uris.isEmpty) return;
         paths = await MediaStoreService.resolveMediaPaths(uris);
+        if (!mounted) return;
+        if (paths.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(t('importReadFailed'))));
+          return;
+        }
       }
-      if (!mounted || paths.isEmpty) return;
+      if (!mounted) return;
       final count = await _store.importFiles(paths);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

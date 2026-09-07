@@ -87,7 +87,11 @@ class MainActivity : FlutterActivity() {
 
     /// 文件名清洗：替换 Windows/Android 非法字符与控制符。
     private fun sanitizeFileName(name: String): String {
-        val cleaned = name.replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), "_").trim()
+        val cleaned = name.map { c ->
+            if (c == '\\' || c == '/' || c == ':' || c == '*' ||
+                c == '?' || c == '"' || c == '<' || c == '>' ||
+                c == '|' || c.isISOControl()) '_' else c
+        }.joinToString("").trim()
         return cleaned.ifEmpty { "sticker" }
     }
 
@@ -139,28 +143,37 @@ class MainActivity : FlutterActivity() {
         folder.mkdirs()
         return uris.map { uriString ->
             val uri = Uri.parse(uriString)
+            // 优先用真实路径（省去复制）；但 Android 11+ 部分设备上
+            // 即使有媒体权限，File 直读其他应用媒体仍会失败——
+            // 只有可读时才用，否则走 content:// 流复制（始终可靠）。
             val direct = queryDirectPath(uri)
-            if (direct != null && File(direct).exists()) {
+            if (direct != null &&
+                File(direct).exists() &&
+                File(direct).canRead()
+            ) {
                 direct
             } else {
-                val projection = arrayOf(MediaStore.MediaColumns.MIME_TYPE)
-                val mime = contentResolver.query(uri, projection, null, null, null)
-                    ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
-                val ext = when (mime) {
-                    "image/jpeg" -> "jpg"
-                    "image/png" -> "png"
-                    "image/gif" -> "gif"
-                    "image/webp" -> "webp"
-                    "image/bmp" -> "bmp"
-                    "video/mp4" -> "mp4"
-                    else -> "bin"
-                }
-                val target = File(folder, "media_${System.nanoTime()}.$ext")
+                val displayName = queryDisplayName(uri)
+                val safeName = displayName?.let { name ->
+                    name.map { c ->
+                        if (c == '\\' || c == '/' || c == ':' || c == '*' ||
+                            c == '?' || c == '"' || c == '<' || c == '>' ||
+                            c == '|' || c.isISOControl()) '_' else c
+                    }.joinToString("").takeIf { it.isNotBlank() }
+                } ?: "media_${System.nanoTime()}"
+                val target = File(folder, safeName)
                 contentResolver.openInputStream(uri)?.use { input ->
                     target.outputStream().use { output -> input.copyTo(output) }
                 } ?: throw IllegalStateException("无法读取所选内容：$uriString")
                 target.absolutePath
             }
+        }
+    }
+
+    private fun queryDisplayName(uri: Uri): String? {
+        val projection = arrayOf(OpenableColumns.DISPLAY_NAME)
+        return contentResolver.query(uri, projection, null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
         }
     }
 
