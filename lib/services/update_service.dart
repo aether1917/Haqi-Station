@@ -49,6 +49,9 @@ class UpdateService {
   static const _githubRepo = 'https://api.github.com/repos/aether1917/Haqi-Station';
   static const _timeout = Duration(seconds: 12);
 
+  /// 内建下载器共用的下载超时。
+  static const timeout = Duration(minutes: 3);
+
   /// 拉取最新版本信息。
   ///
   /// 普通用户 [includePrerelease] 为 false：只看正式版（latest 接口天然

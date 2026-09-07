@@ -3,10 +3,15 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../l10n/l10n.dart';
+import '../services/settings_service.dart';
+import '../services/update_download_service.dart';
+import '../services/update_service.dart';
+
+import '../l10n/l10n.dart';
 import '../services/update_service.dart';
 
 /// 全屏「发现新版本」页：展示 Release Notes，右上角 × 可关闭，
-/// 底部一键跳浏览器下载 APK。启动静默检查与关于页手动检查共用。
+/// 底部为内建下载器（页面显示进度；关闭页面后转后台并以通知展示进度）。
 Future<void> showUpdatePage(BuildContext context, AppUpdate update) {
   return Navigator.of(context).push(MaterialPageRoute<void>(
     fullscreenDialog: true,
@@ -14,17 +19,35 @@ Future<void> showUpdatePage(BuildContext context, AppUpdate update) {
   ));
 }
 
-class UpdatePage extends StatelessWidget {
+class UpdatePage extends StatefulWidget {
   const UpdatePage({super.key, required this.update});
 
   final AppUpdate update;
 
   @override
+  State<UpdatePage> createState() => _UpdatePageState();
+}
+
+class _UpdatePageState extends State<UpdatePage> {
+  bool _starting = false;
+
+  @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final update = widget.update;
 
-    return Scaffold(
+    return PopScope(
+      canPop: UpdateDownloadService.instance.phase !=
+          UpdateDownloadPhase.downloading,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          UpdateDownloadService.instance.onPageClosed();
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(t('downloadInBackground'))));
+        }
+      },
+      child: Scaffold(
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -35,7 +58,14 @@ class UpdatePage extends StatelessWidget {
               child: IconButton(
                 tooltip: t('close'),
                 icon: const Icon(Icons.close_rounded),
-                onPressed: () => Navigator.pop(context),
+                onPressed: () {
+                  final dl = UpdateDownloadService.instance;
+                  final downloading = dl.phase == UpdateDownloadPhase.downloading;
+                  Navigator.pop(context);
+                  if (downloading) {
+                    dl.onPageClosed();
+                  }
+                },
               ),
             ),
             Expanded(
@@ -94,6 +124,7 @@ class UpdatePage extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 }

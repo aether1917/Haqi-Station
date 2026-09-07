@@ -8,6 +8,7 @@ import 'l10n/l10n.dart';
 import 'pages/home_page.dart';
 import 'services/dynamic_scheme.dart';
 import 'services/settings_service.dart';
+import 'services/update_download_service.dart';
 import 'services/update_service.dart';
 import 'theme.dart';
 import 'widgets/update_page.dart';
@@ -16,6 +17,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final settings = SettingsService.instance;
   await settings.load();
+  await UpdateDownloadService.instance.init();
   runApp(HaqiApp(settings: settings));
 }
 

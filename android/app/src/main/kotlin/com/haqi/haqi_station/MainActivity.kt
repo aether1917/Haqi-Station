@@ -356,6 +356,25 @@ class MainActivity : FlutterActivity() {
                             result.error("EXPORT_FAILED", e.message, null)
                         }
                     }
+                    "installApk" -> {
+                        val path = call.argument<String>("path")
+                        try {
+                            if (path == null) {
+                                result.error("INSTALL_FAILED", "missing path", null)
+                            } else {
+                                val uri = FileProvider.getUriForFile(
+                                    this, "$packageName.fileprovider", File(path))
+                                val intent = Intent(Intent.ACTION_VIEW).apply {
+                                    setDataAndType(uri, "application/vnd.android.package-archive")
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                startActivity(intent)
+                                result.success(true)
+                            }
+                        } catch (e: Exception) {
+                            result.error("INSTALL_FAILED", e.message, null)
+                        }
+                    }
                     "importUriToCache" -> {
                         val uriString = call.argument<String>("uri")
                         try {
