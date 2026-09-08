@@ -100,15 +100,16 @@ class _StickersPageState extends State<StickersPage> {
         );
         paths = [for (final f in picked) if (f.path != null) f.path!];
       } else {
-        final uris = await showMediaPicker(context);
-        if (!mounted || uris == null || uris.isEmpty) return;
-        paths = await MediaStoreService.resolveMediaPaths(uris);
-        if (!mounted) return;
-        if (paths.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text(t('importReadFailed'))));
+        // 内建内容查看器返回的已是落盘后的可导入文件路径，不能再解析一次
+        // （此前二次解析把文件路径当 content URI，必然失败）。
+        final picked = await showMediaPicker(context);
+        if (!mounted || picked == null) return; // 用户取消
+        if (picked.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(t('importReadFailed'))));
           return;
         }
+        paths = picked;
       }
       if (!mounted) return;
       final count = await _store.importFiles(paths);

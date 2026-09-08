@@ -54,11 +54,18 @@ class MediaStoreService {
 
   /// 把选中的 content:// 转成可导入的文件路径
   /// （优先真实路径，云端等内容自动复制到缓存）。
+  ///
+  /// 只接受 content:// URI：文件路径等无 scheme 的输入会被忽略，
+  /// 避免「对已落盘路径再解析一次」这类误用导致整体失败。
   static Future<List<String>> resolveMediaPaths(List<String> uris) async {
-    if (uris.isEmpty) return const [];
+    final contentUris = [
+      for (final u in uris)
+        if (u.startsWith('content://')) u,
+    ];
+    if (contentUris.isEmpty) return const [];
     try {
-      final paths = await _channel
-          .invokeMethod<List<dynamic>>('resolveMediaPaths', {'uris': uris});
+      final paths = await _channel.invokeMethod<List<dynamic>>(
+          'resolveMediaPaths', {'uris': contentUris});
       return [for (final p in paths ?? const <dynamic>[]) p as String];
     } catch (_) {
       return const [];
