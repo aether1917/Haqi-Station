@@ -66,17 +66,16 @@ class UpdateDownloadService extends ChangeNotifier {
     _filePath = null;
     notifyListeners();
     try {
-      if (Platform.isWindows && update.windowsUrl != null) {
-        // Windows：下载 zip → 解压 → 打开目录。
-        final dir = await UpdateService.downloadWindowsUpdate(update.windowsUrl!);
-        _phase = dir == null
-            ? UpdateDownloadPhase.failed
-            : UpdateDownloadPhase.done;
+      if (Platform.isWindows && update.windowsUrl == null) {
+        // 旧版 Release 没有 Windows 安装包资产（v1.8.0 之前是 zip），
+        // 应用内无法完成安装器更新，直接置失败让用户手动下载。
+        _phase = UpdateDownloadPhase.failed;
         notifyListeners();
         return;
       }
-      final file =
-          File('${(await getTemporaryDirectory()).path}/haqi-update.apk');
+      final file = File(
+          '${(await getTemporaryDirectory()).path}'
+          '${Platform.isWindows ? '/haqi-station-setup.exe' : '/haqi-update.apk'}');
       final client = HttpClient();
       final request = await client.getUrl(Uri.parse(update.downloadUrl));
       request.headers.set(HttpHeaders.userAgentHeader, 'haqi-station-app');
@@ -105,6 +104,10 @@ class UpdateDownloadService extends ChangeNotifier {
       _filePath = file.path;
       _phase = UpdateDownloadPhase.done;
       notifyListeners();
+      if (Platform.isWindows) {
+        await _runWindowsInstaller();
+        return;
+      }
       // 页面已关闭：通知「下载完成」并直接调起安装。
       if (_pageClosed) {
         await _showDoneNotification();
@@ -135,11 +138,34 @@ class UpdateDownloadService extends ChangeNotifier {
     }
   }
 
+  /// Windows：/SILENT 静默调起 Inno Setup 安装器（per-user 安装无需
+  /// 管理员），稍候退出应用释放文件锁；安装器完成覆盖安装后自动重启。
+  Future<void> _runWindowsInstaller() async {
+    if (_filePath == null) return;
+    var launched = true;
+    try {
+      await Process.start(
+          _filePath!,
+          const ['/SILENT', '/SUPPRESSMSGBOXES', '/CLOSEAPPLICATIONS'],
+          mode: ProcessStartMode.detached);
+    } catch (_) {
+      launched = false;
+    }
+    if (!launched) {
+      _phase = UpdateDownloadPhase.failed;
+      notifyListeners();
+      return;
+    }
+    // 给安装器留出启动时间，再退出应用避免安装中被占用。
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    exit(0);
+  }
+
   Future<void> _showProgressNotification() async {
     await _notifications.show(
       id: 1001,
       title: t('notificationDownloading'),
-      body: '${_received}${_totalSize.isNotEmpty ? ' / $_totalSize' : ''}',
+      body: '$_received${_totalSize.isNotEmpty ? ' / $_totalSize' : ''}',
       notificationDetails: _progressDetails(),
     );
   }

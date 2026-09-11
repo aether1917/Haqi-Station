@@ -3,15 +3,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../l10n/l10n.dart';
-import '../services/settings_service.dart';
 import '../services/update_download_service.dart';
 import '../services/update_service.dart';
 
-import '../l10n/l10n.dart';
-import '../services/update_service.dart';
-
-/// 全屏「发现新版本」页：展示 Release Notes，右上角 × 可关闭，
-/// 底部为内建下载器（页面显示进度；关闭页面后转后台并以通知展示进度）。
+/// 全屏「发现新版本」页：展示 Release Notes，右上角 × 可关闭。
+/// Android 底部按钮跳浏览器下载 APK；Windows 为内建下载器（页面显示
+/// 实时进度，完成后静默调起安装器并自动重启应用）。
 Future<void> showUpdatePage(BuildContext context, AppUpdate update) {
   return Navigator.of(context).push(MaterialPageRoute<void>(
     fullscreenDialog: true,
@@ -29,8 +26,6 @@ class UpdatePage extends StatefulWidget {
 }
 
 class _UpdatePageState extends State<UpdatePage> {
-  bool _starting = false;
-
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -38,8 +33,11 @@ class _UpdatePageState extends State<UpdatePage> {
     final update = widget.update;
 
     return PopScope(
-      canPop: UpdateDownloadService.instance.phase !=
-          UpdateDownloadPhase.downloading,
+      // Windows：关闭页面后下载继续（完成后自动调起安装器），
+      // 不阻挡返回；Android 保持下载中锁定返回（转后台需确认）。
+      canPop: Platform.isWindows ||
+          UpdateDownloadService.instance.phase !=
+              UpdateDownloadPhase.downloading,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
           UpdateDownloadService.instance.onPageClosed();
@@ -115,10 +113,67 @@ class _UpdatePageState extends State<UpdatePage> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-              child: FilledButton.icon(
-                onPressed: () => UpdateService.downloadApk(update.apkUrl),
-                icon: const Icon(Icons.download_rounded),
-                label: const Text('下载更新'),
+              child: ListenableBuilder(
+                listenable: UpdateDownloadService.instance,
+                builder: (context, _) {
+                  final dl = UpdateDownloadService.instance;
+                  final phase = dl.phase;
+                  if (!Platform.isWindows) {
+                    // Android 保持跳浏览器下载 APK。
+                    return FilledButton.icon(
+                      onPressed: () => UpdateService.downloadApk(update.apkUrl),
+                      icon: const Icon(Icons.download_rounded),
+                      label: Text(t('download')),
+                    );
+                  }
+                  if (phase == UpdateDownloadPhase.idle ||
+                      phase == UpdateDownloadPhase.failed) {
+                    final failed = phase == UpdateDownloadPhase.failed;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (failed) ...[
+                          Text(t('updateDownloadFail'),
+                              textAlign: TextAlign.center,
+                              style: text.bodySmall
+                                  ?.copyWith(color: colors.error)),
+                          const SizedBox(height: 8),
+                        ],
+                        FilledButton.icon(
+                          onPressed: () =>
+                              UpdateDownloadService.instance.start(update),
+                          icon: const Icon(Icons.download_rounded),
+                          label: Text(failed ? t('retryDownload') : t('download')),
+                        ),
+                      ],
+                    );
+                  }
+                  if (phase == UpdateDownloadPhase.downloading) {
+                    final pct =
+                        dl.progress >= 0 ? (dl.progress * 100).round() : null;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        LinearProgressIndicator(value: dl.progress < 0 ? null : dl.progress),
+                        if (pct != null) ...[
+                          const SizedBox(height: 8),
+                          Text('${dl.received}'
+                              '${dl.totalSize.isNotEmpty ? ' / ${dl.totalSize}' : ''}'
+                              '（$pct%）',
+                              textAlign: TextAlign.center,
+                              style: text.bodySmall?.copyWith(
+                                  color: colors.onSurfaceVariant,
+                                  fontFeatures: const [FontFeature.tabularFigures()])),
+                        ],
+                      ],
+                    );
+                  }
+                  // done：安装器已在启动中，应用即将自动重启。
+                  return Text(t('updateWindowsHint'),
+                      textAlign: TextAlign.center,
+                      style: text.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant, height: 1.5));
+                },
               ),
             ),
           ],

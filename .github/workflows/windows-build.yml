@@ -21,16 +21,27 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: flutter build windows --release
-      - name: Zip Windows build
+      - name: Build installer (Inno Setup)
         shell: pwsh
-        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath haqi-station-windows.zip
+        run: |
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\iscc.exe'
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+          }
+          # 版本号：tag 优先（去掉 v 前缀），非 tag 触发时回退 pubspec 的版本段。
+          $v = $env:GITHUB_REF_NAME
+          if ($v -notmatch '^\d+\.\d') {
+            $v = (Select-String -Path pubspec.yaml -Pattern '^version:\s*([0-9.]+)').Matches[0].Groups[1].Value
+          }
+          New-Item -ItemType Directory -Force build\installer | Out-Null
+          & $iscc "/DAppVersion=$v" windows\installer\setup.iss
       - uses: actions/upload-artifact@v4
         with:
           name: haqi-station-windows
-          path: haqi-station-windows.zip
+          path: build/installer/haqi-station-*-windows-setup.exe
       - name: Attach to release (tag builds)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: haqi-station-windows.zip
+          files: build/installer/haqi-station-*-windows-setup.exe
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}

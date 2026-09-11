@@ -139,5 +139,46 @@ void main() {
       expect(update.notes, contains('Gitee'));
       expect(update.apkUrl, startsWith('https://gitee.com/'));
     });
+
+    test('Windows 更新匹配 Inno Setup 安装包（回归：v1.8.0 起 portable zip 弃用）', () {
+      final update = UpdateService.parseRelease({
+        'tag_name': 'v1.8.0',
+        'body': '',
+        'assets': [
+          {
+            'name': 'haqi-station-v1.7.6.apk',
+            'browser_download_url': 'https://x/haqi-station-v1.7.6.apk',
+          },
+          {
+            'name': 'haqi-station-v1.8.0-windows-setup.exe',
+            'browser_download_url':
+                'https://x/haqi-station-v1.8.0-windows-setup.exe',
+          },
+        ],
+      });
+      expect(update, isNotNull);
+      expect(update!.windowsUrl,
+          'https://x/haqi-station-v1.8.0-windows-setup.exe');
+      expect(update.downloadUrl, update.windowsUrl);
+    });
+
+    test('zip 附件不再视为 Windows 更新包（仅剩旧 Release 时回退 APK 直链）', () {
+      final update = UpdateService.parseRelease({
+        'tag_name': 'v1.8.0',
+        'assets': [
+          {
+            'name': 'haqi-station-v1.8.0.apk',
+            'browser_download_url': 'https://x/haqi-station-v1.8.0.apk',
+          },
+          {
+            'name': 'haqi-station-windows.zip',
+            'browser_download_url': 'https://x/haqi-station-windows.zip',
+          },
+        ],
+      });
+      expect(update, isNotNull);
+      expect(update!.windowsUrl, isNull);
+      expect(update.downloadUrl, 'https://x/haqi-station-v1.8.0.apk');
+    });
   });
 }
