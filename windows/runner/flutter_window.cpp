@@ -36,6 +36,12 @@ bool FlutterWindow::OnCreate() {
   // window is shown. It is a no-op if the first frame hasn't completed yet.
   flutter_controller_->ForceRedraw();
 
+  // 兜底：窗口显示依赖首帧回调，但老显卡驱动（如 2019 版 AMD）在部分
+  // Windows 更新后首帧永远渲染不出来，表现为进程常驻、窗口不出现。
+  // 2 秒内首帧回调未触发就直接显示窗口，保证应用总能打开。
+  constexpr UINT kShowFallbackTimerId = 1;
+  SetTimer(GetHandle(), kShowFallbackTimerId, 2000, nullptr);
+
   return true;
 }
 
@@ -62,6 +68,15 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   }
 
   switch (message) {
+    case WM_TIMER:
+      // 兜底显示定时器到期：首帧回调仍未触发，直接显示窗口。
+      if (wparam == 1) {
+        KillTimer(hwnd, 1);
+        Show();
+        return 0;
+      }
+      break;
+
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
       break;
